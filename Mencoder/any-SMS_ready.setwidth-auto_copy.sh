@@ -9,6 +9,7 @@ setresolucao()
 	coded_height=${coded_height#coded_height=}
 	if [[ -z $coded_width ]] || [[ -z $coded_height ]]; then
 		echo "Erro na definição da resolução: Leitura de variáveis incorreta"
+		sleep 5
 		skip_file=1
 	else
 		altura=$(echo "670/($coded_width/$coded_height)" | bc -l)	#Calcula precisamente o valor da altura por regra de 3
@@ -32,6 +33,7 @@ converter()
 		do
 			echo -e "\e[1;35mConvertendo $arq\e[0m"
 			setresolucao						#chama a função que configura a resolução individualmente para cada arquivo
+			#srtextract							#chama a função que irá extrair a legenda do arquivo de vídeo para um arquivo srt
 			if [ $skip_file -eq 0 ]; then
 				sleep 2
 				mencoder "$arq" -oac mp3lame -lameopts br=256 -af resample=48000 -ovc lavc -vf scale=670:$altura -ffourcc XVID -alang $a_lang -lavcopts vbitrate=16000:autoaspect -nosub -msgcolor -o convertidos/"${arq/.$extensao/.avi}"
@@ -183,7 +185,7 @@ checkargumento()
 	i=0
 	for argumento in $*
 	do
-		i=$(($i+1))
+		i=$(($i+1))		#dafuq é essa linha, Gabriel?
 		case $argumento in
 			-d)
 				echo -e "\e[01;31mAVISO:\e[0m"
@@ -194,6 +196,8 @@ checkargumento()
 				echo "Foi utilizado um argumento inválido"
 				echo "Interrompendo script"
 				exit 1 ;;
+			#X) Um argumento que permita juntar todas as saídas em um único arquivo, como esse comando "mencoder -oac copy -ovc copy file1.avi file2.avi file3.avi -o full_movie.avi"
+			#X) Um argumento de defina um diretório atual diferente
 		esac 
 	done
 }
@@ -230,13 +234,49 @@ ambientvar()
 	datual=$(pwd)
 	onlycopy=0
 	autodelete=0
+	ffprobe_command="ffprobe -v quiet -show_format -show_streams -print_format json"
 }
 
 srtextract()
 {
-	#extrair srt de dentro de arquivo de video
+	if [ ! -f "$datual/$filename.srt" ] && [ "a_lang" != "por" ]; then	#Uma função que detecta se existe uma faixa em 'por' no vídeo é melhor (para o 2º test)
+		n_fluxos_pt=0
+		stream_num=0
+		filename=${arq%.$extensao*}
+		stream_indexes=$($ffprobe_command "$datual"/"$arq" | jq .streams[].index | wc -l)
 
-	mkvextract tracks rick.and.morty.s01e01.pilot.1080p.web.dl.x264-mRs.mkv 2:teste.srt
+		stream_num=0
+		while [ $stream_num -lt $stream_indexes ]; do
+			if [ "$($ffprobe_command "$datual"/"$arq" | jq .streams[$stream_num].codec_type)" == "\"subtitle\"" ]; then
+				srt_streams="${srt_streams} $stream_num"
+			fi
+			((stream_num++))
+		done
+		for fluxo in $srt_streams; do
+			fluxo_lang=$($ffprobe_command "$datual"/"$arq" | jq .streams[$fluxo].tags.language)
+			echo "O fluxo $fluxo tem idioma $fluxo_lang"
+			if [ "$fluxo_lang" == "\"por\"" ]; then
+				por_stream="${por_stream} $fluxo"
+				((n_fluxos_pt++))
+			fi
+		done
+		if [ $n_fluxos_pt -eq 1 ]; then
+			echo "Foi encontrado um fluxo de legenda em portugues dentro do arquivo de vídeo"
+			echo "Extraindo fluxo de legenda para arquivo srt..."
+			mkvextract tracks "$datual"/"$arq" $por_stream:"$datual/$filename.srt"
+		else
+			if [ $n_fluxos_pt -gt 1 ]; then
+				echo "ALERTA: Não há arquivo externo de legenda para '$arq' MAS foi encontrado mais de um fluxo de legenda em portugues no arquivo de video"
+				echo "O script não irá fazer nada"
+				sleep 5
+			fi
+		fi
+	fi
+}
+
+copiasrt()
+{
+	#esta função copiará os arquivos srt para a pasta 'convertidos' (ela deve avisar ao usuário caso os arquivos tenham sido copiados)
 }
 
 main()
@@ -252,8 +292,8 @@ main()
 	if [ $onlycopy -eq 0 ]; then	#se 'onlycopy' for igual a 1, todos os passos referentes a conversão dos arquivos serão pulados
 		setextensao
 		setlang			#Chama a função que configura o idioma
-		#adicionar função que copia os arquivos de legenda para a 'convertidos' (ela deve avisar ao usuário caso os arquivos tenham sido movidos)
 		converter		#Função da conversão propriamente dita
+		#copiasrt 		#Função que copia os arquivos de legenda para a pasta 'convertidos'
 	fi
 	checkempty		#Esta função checa se a pasta convertidos está vazia
 	montar          #chama a função que monta a pasta videos
