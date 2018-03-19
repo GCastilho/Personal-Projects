@@ -33,7 +33,7 @@ converter()
 		do
 			echo -e "\e[1;35mConvertendo $arq\e[0m"
 			setresolucao						#chama a função que configura a resolução individualmente para cada arquivo
-			#srtextract							#chama a função que irá extrair a legenda do arquivo de vídeo para um arquivo srt
+			srtextract							#chama a função que irá extrair a legenda do arquivo de vídeo para um arquivo srt
 			if [ $skip_file -eq 0 ]; then
 				sleep 2
 				mencoder "$arq" -oac mp3lame -lameopts br=256 -af resample=48000 -ovc lavc -vf scale=670:$altura -ffourcc XVID -alang $a_lang -lavcopts vbitrate=16000:autoaspect -nosub -msgcolor -o convertidos/"${arq/.$extensao/.avi}"
@@ -239,23 +239,22 @@ ambientvar()
 
 srtextract()
 {
+	filename=${arq%.$extensao*}
 	if [ ! -f "$datual/$filename.srt" ] && [ "a_lang" != "por" ]; then	#Uma função que detecta se existe uma faixa em 'por' no vídeo é melhor (para o 2º test)
 		n_fluxos_pt=0
 		stream_num=0
-		filename=${arq%.$extensao*}
 		stream_indexes=$($ffprobe_command "$datual"/"$arq" | jq .streams[].index | wc -l)
-
+		unset srt_streams
 		stream_num=0
 		while [ $stream_num -lt $stream_indexes ]; do
-			if [ "$($ffprobe_command "$datual"/"$arq" | jq .streams[$stream_num].codec_type)" == "\"subtitle\"" ]; then
+			if [ "$($ffprobe_command "$datual"/"$arq" | jq --raw-output .streams[$stream_num].codec_type)" == "subtitle" ]; then
 				srt_streams="${srt_streams} $stream_num"
 			fi
 			((stream_num++))
 		done
 		for fluxo in $srt_streams; do
-			fluxo_lang=$($ffprobe_command "$datual"/"$arq" | jq .streams[$fluxo].tags.language)
-			echo "O fluxo $fluxo tem idioma $fluxo_lang"
-			if [ "$fluxo_lang" == "\"por\"" ]; then
+			fluxo_lang=$($ffprobe_command "$datual"/"$arq" | jq --raw-output .streams[$fluxo].tags.language)
+			if [ "$fluxo_lang" == "por" ]; then
 				por_stream="${por_stream} $fluxo"
 				((n_fluxos_pt++))
 			fi
@@ -264,6 +263,7 @@ srtextract()
 			echo "Foi encontrado um fluxo de legenda em portugues dentro do arquivo de vídeo"
 			echo "Extraindo fluxo de legenda para arquivo srt..."
 			mkvextract tracks "$datual"/"$arq" $por_stream:"$datual/$filename.srt"
+			echo "Extração completa"
 		else
 			if [ $n_fluxos_pt -gt 1 ]; then
 				echo "ALERTA: Não há arquivo externo de legenda para '$arq' MAS foi encontrado mais de um fluxo de legenda em portugues no arquivo de video"
@@ -274,10 +274,10 @@ srtextract()
 	fi
 }
 
-copiasrt()
-{
+#copiasrt()
+# {
 	#esta função copiará os arquivos srt para a pasta 'convertidos' (ela deve avisar ao usuário caso os arquivos tenham sido copiados)
-}
+#}
 
 main()
 {

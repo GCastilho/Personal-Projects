@@ -1,3 +1,3 @@
 Shell Scripts
 
-Pasta com versionamento git para meus projetos em Shell Script
+Repositório git para projetos pessoais em Shell Script
