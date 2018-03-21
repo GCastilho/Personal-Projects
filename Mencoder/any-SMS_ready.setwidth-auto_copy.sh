@@ -245,7 +245,7 @@ srtextract()
 		stream_num=0
 		stream_indexes=$($ffprobe_command "$datual"/"$arq" | jq .streams[].index | wc -l)
 		unset srt_streams
-		stream_num=0
+		unset por_stream
 		while [ $stream_num -lt $stream_indexes ]; do
 			if [ "$($ffprobe_command "$datual"/"$arq" | jq --raw-output .streams[$stream_num].codec_type)" == "subtitle" ]; then
 				srt_streams="${srt_streams} $stream_num"
@@ -262,7 +262,7 @@ srtextract()
 		if [ $n_fluxos_pt -eq 1 ]; then
 			echo "Foi encontrado um fluxo de legenda em portugues dentro do arquivo de vídeo"
 			echo "Extraindo fluxo de legenda para arquivo srt..."
-			mkvextract tracks "$datual"/"$arq" $por_stream:"$datual/$filename.srt"
+			mkvextract tracks "$datual/$arq" $por_stream:"$datual/$filename.srt"
 			echo "Extração completa"
 		else
 			if [ $n_fluxos_pt -gt 1 ]; then
