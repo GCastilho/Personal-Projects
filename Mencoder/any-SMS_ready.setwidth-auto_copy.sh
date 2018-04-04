@@ -66,20 +66,26 @@ copia()
 
 montar()
 {
-	if mountpoint -q ~/Public/Videos/; then
-		echo "Pasta Videos já montada, pulando montagem"
-		montada=1
-	else
-		echo "Montando a pasta Videos de Nabucodonosor"
-		montada=0
-		mount ~/Public/Videos/
+	ping -c 1 $file_host > /dev/null
+	if [[ $? -eq 0 ]]; then
 		if mountpoint -q ~/Public/Videos/; then
-			echo "Montagem bem sucedida"
+			echo "Pasta Videos já montada, pulando montagem"
+			montada=1
 		else
-			echo "Erro na montagem, a pasta não foi montada"
-			echo "Interrompendo script"
-			exit 1
+			echo "Montando a pasta Videos de $file_host_name"
+			montada=0
+			mount ~/Public/Videos/
+			if mountpoint -q ~/Public/Videos/; then
+				echo "Montagem bem sucedida"
+			else
+				echo "Erro na montagem, a pasta não foi montada"
+				echo "Interrompendo script"
+				exit 1
 		fi
+	else
+		echo "Erro na conexão com $file_host ($file_host_name)"
+		echo "Interrompendo o script"
+		exit 1
 	fi
 }
 
@@ -235,6 +241,8 @@ ambientvar()
 	onlycopy=0
 	autodelete=0
 	ffprobe_command="ffprobe -v quiet -show_format -show_streams -print_format json"
+	file_host=192.168.0.101
+	file_host_name=Nabucodonosor
 }
 
 srtextract()
@@ -274,10 +282,21 @@ srtextract()
 	fi
 }
 
-#copiasrt()
-# {
-	#esta função copiará os arquivos srt para a pasta 'convertidos' (ela deve avisar ao usuário caso os arquivos tenham sido copiados)
-#}
+copiasrt()
+{
+	srt_count=$(ls -1 convertidos/"$origem"* 2>/dev/null | wc -l)  
+	if [ $srt_count -gt 0 ]; then
+		echo "Detectado arquivos de legenda no diretório de cópia"
+		echo "Copiando arquivos para a pasta 'convertidos'"
+		if mv -v *.srt convertidos/; then
+			echo "Arquivos copiados com sucesso"
+		else
+			echo "Erro na cópia do arquivos de legenda"
+			echo "Interrompendo script"
+			exit 1
+		fi
+	fi
+}
 
 main()
 {
@@ -293,7 +312,7 @@ main()
 		setextensao
 		setlang			#Chama a função que configura o idioma
 		converter		#Função da conversão propriamente dita
-		#copiasrt 		#Função que copia os arquivos de legenda para a pasta 'convertidos'
+		copiasrt 		#Função que copia os arquivos de legenda para a pasta 'convertidos'
 	fi
 	checkempty		#Esta função checa se a pasta convertidos está vazia
 	montar          #chama a função que monta a pasta videos
