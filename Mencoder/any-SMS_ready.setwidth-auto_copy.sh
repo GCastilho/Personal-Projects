@@ -81,6 +81,7 @@ montar()
 				echo "Erro na montagem, a pasta não foi montada"
 				echo "Interrompendo script"
 				exit 1
+			fi
 		fi
 	else
 		echo "Erro na conexão com $file_host ($file_host_name)"
@@ -188,24 +189,49 @@ setlang()
 
 checkargumento()
 {
-	i=0
-	for argumento in $*
-	do
-		i=$(($i+1))		#dafuq é essa linha, Gabriel?
-		case $argumento in
+	arg=($*)			#coloca os argumentos em um array
+	unset arg_list
+	opt_args=""			#Os argumentos dessa variável são os que OBRIGATORIAMENTE precisam de uma opção passada como outro argumento (ex: -d /bin/bash)
+	for ((count=0; count < ${#arg[*]}; count++)) {		#Lista recursivamente os itens do array dos argumentos
+		if [ "${arg[count]:0:1}" == "-" ]; then			#Testa se o argumento começa com traço '-'
+			if [ "${arg[count]:1:1}" == "-" ]; then		#Testa se o argumento tem um segundo traço ('--')
+				arg_list="$arg_list ${arg[count]}"
+			else
+				i=0		#i controla em qual palavra a opção passada como argumento está, relativamente a posição do array sendo analisada
+				for ((char=1; char<${#arg[count]}; char++)) {	#Lista recursivamente os caracteres do item do array; char=1 para ignorar o '-'
+					arg_list="$arg_list -${arg[count]:char:1}"			#Coloca o char do argumento na lista de argumentos
+					if [[ ! -z $opt_args ]]; then		#If necessário se $opt_args estiver vazia
+						if echo ${arg[count]:char:1} | grep [$opt_args] >/dev/null; then	#Verifica se ${arg[count]:char:1} contêm algum char de $opt_args
+							((i++))											#Incrementa o controle de organização das opções passadas como argumentos
+							arg_list="$arg_list ${arg[count+i]}"			#Coloca a opção do cada argumento em seguida dele (-ab opa opb)
+							arg[count+i]=""									#Limpa a posição no array, para impedir que o argumento seja duplicado na lsita
+						fi
+					fi
+				}
+			fi
+		else
+			arg_list="$arg_list ${arg[count]}"			#Adiciona argumentos que não começam com traço na lista
+		fi
+	}
+	arg_list=($arg_list)	#Transforma a lista de argumentos em um vetor
+	for ((count=0; count < ${#arg_list[*]}; count++)) {
+		arg=${arg_list[count]}
+		case $arg in
 			-d)
-				echo -e "\e[01;31mAVISO:\e[0m"
-				echo "O argumento \"-d\" foi utilizado, autorizando a remoção automática do diretório atual no fim do script sem questionar"
-				echo
 				autodelete=1 ;;
 			*)
-				echo "Foi utilizado um argumento inválido"
+				echo "Argumento '${arg#*-}' é um argumento inválido"	#Remove o '-' do argumento ao mostrar para o usuário
 				echo "Interrompendo script"
-				exit 1 ;;
+				exit 2 ;;
 			#X) Um argumento que permita juntar todas as saídas em um único arquivo, como esse comando "mencoder -oac copy -ovc copy file1.avi file2.avi file3.avi -o full_movie.avi"
 			#X) Um argumento de defina um diretório atual diferente
-		esac 
-	done
+		esac
+	}
+	if [[ $autodelete == 1 ]]; then
+		echo -e "\e[01;31mAVISO:\e[0m"
+		echo "O argumento \"-d\" foi utilizado, autorizando a remoção automática do diretório atual no fim do script sem questionar"
+		echo
+	fi
 }
 
 checkconvertidos()
