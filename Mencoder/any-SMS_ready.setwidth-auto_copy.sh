@@ -196,7 +196,6 @@ setlang()
 
 checkargumento()
 {
-	arg=("$@")			#coloca os argumentos em um array
 	unset arg_list
 	opt_args="d"			#Os argumentos dessa variável são os que OBRIGATORIAMENTE precisam de uma opção passada como outro argumento (ex: -d /bin/bash)
 	for ((count=0; count < ${#arg[*]}; count++)) {		#Lista recursivamente os itens do array dos argumentos
@@ -361,7 +360,7 @@ main()
 	echo "Esse programa usa mencoder"
 	echo
 	ambientvar          #Seta variáveis que serão as mesmas em todas as funções e são necessárias desde sempre
-	checkargumento $*	#A ideia dessa função é checar os argumentos dados ao script e tomar as medidas para tal. $* passa todos os argumentos do sript para a função
+	checkargumento		#Checar os argumentos dados ao script e toma as medidas para tal
 	echo "O diretório atual é: \"$datual\""
 	checkdbfile         #Checa se o arquivo de banco de dados existe (lembrando que um argumento pode indicar outro DB, por isso ele checa depois da função 'checkargumento')
 	checkconvertidos    #checa se a pasta 'convertidos' existe
@@ -381,5 +380,8 @@ main()
 	exit 0
 }
 
+#coloca os argumentos em um array
+arg=("$@")
+
 #inicia a função main
-main $*
+main
