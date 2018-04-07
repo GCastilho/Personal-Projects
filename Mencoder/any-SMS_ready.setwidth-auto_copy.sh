@@ -201,19 +201,19 @@ checkargumento()
 	for ((count=0; count < ${#arg[*]}; count++)) {		#Lista recursivamente os itens do array dos argumentos
 		if [ "${arg[count]:0:1}" == "-" ]; then			#Testa se o argumento começa com traço '-'
 			if [ "${arg[count]:1:1}" == "-" ]; then		#Testa se o argumento tem um segundo traço ('--')
-				if [[ ! -z ${arg[count]} ]]; then		#Adiciona o item no array apenas se ele não é nulo
-					arg_list[var++]="${arg[count]}"
+				if [[ ! -z ${arg[count]} ]]; then		#Adiciona o item no array apenas se o ítem não é nulo
+					arg_list[arr++]="${arg[count]}"
 				fi
 			else
 				i=0		#i controla em qual palavra a opção passada como argumento está, relativamente a posição do array sendo analisada
 				for ((char=1; char<${#arg[count]}; char++)) {	#Lista recursivamente os caracteres do item do array; char=1 para ignorar o '-'
-					if [[ ! -z ${arg[count]:char:1} ]]; then	#Adiciona o item no array apenas se ele não é nulo
-						arg_list[var++]="-${arg[count]:char:1}"		#Coloca o char do argumento na lista de argumentos
+					if [[ ! -z ${arg[count]:char:1} ]]; then	#Adiciona o item no array apenas se o ítem não é nulo
+						arg_list[arr++]="-${arg[count]:char:1}"		#Coloca o char do argumento na lista de argumentos
 						if [[ ! -z $opt_args ]]; then				#If necessário se $opt_args estiver vazia
 							if echo ${arg[count]:char:1} | grep [$opt_args] >/dev/null; then	#Verifica se ${arg[count]:char:1} contêm algum char de $opt_args
 								((i++))											#Incrementa o controle de organização das opções passadas como argumentos
-								if [[ ! -z ${arg[count+i]} ]]; then				#Adiciona o item no array apenas se ele não é nulo
-									arg_list[var++]="${arg[count+i]}"			#Coloca a opção do cada argumento em seguida dele (-ab opa opb)
+								if [[ ! -z ${arg[count+i]} ]]; then				#Adiciona o item no array apenas se o ítem não é nulo
+									arg_list[arr++]="${arg[count+i]}"			#Coloca a opção do cada argumento em seguida dele (-ab opa opb)
 									arg[count+i]=""								#Limpa a posição no array, para impedir que o argumento seja duplicado na lsita
 								fi
 							fi
@@ -222,8 +222,8 @@ checkargumento()
 				}
 			fi
 		else
-			if [[ ! -z ${arg[count]} ]]; then			#Adiciona o item no array apenas se ele não é nulo
-				arg_list[var++]="${arg[count]}"			#Adiciona argumentos que não começam com traço na lista
+			if [[ ! -z ${arg[count]} ]]; then			#Adiciona o item no array apenas se o ítem não é nulo
+				arg_list[arr++]="${arg[count]}"			#Adiciona argumentos que não começam com traço na lista
 			fi
 		fi
 	}
@@ -235,17 +235,17 @@ checkargumento()
 			-d|--dir=*)
 				custom_dir=1
 				if [[ $arg == "-d" ]]; then
-					((count++))
+					((count++))	#Os dados do argumento sempre estão na posição seguinte do array, já que foram organizados assim pela primeira parte do script
 					datual=${arg_list[count]}
 				else
 					datual=${arg#*=}
 				fi
 				datual=${datual%/}	#remove o último '/' se existir
-				if [[ -d $(pwd)/$datual ]]; then
+				if [[ -d $(pwd)/$datual ]]; then	#Essa sequencia de if tenta detectar posições relativas passadas como argumento, e reoganizá-lo
 					datual=$(pwd)/$datual
-				elif [[ -d $HOME${arg#*~} ]]; then
+				elif [[ -d $HOME${arg#*~} ]]; then	#Para pastas relativas ao diretório do script (ex: -d folder/subfolder)
 					datual=$HOME${arg#*~}
-				elif [[ ! -d $datual ]]; then
+				elif [[ ! -d $datual ]]; then		#Para argumentos relativos a home (ex: ~/folder/subfolder)
 					echo "'$datual' não foi reconhecido como um diretório válido"
 					echo "Interrompendo o script"
 					exit 2
