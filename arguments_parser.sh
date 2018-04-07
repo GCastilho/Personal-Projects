@@ -65,14 +65,6 @@ for ((count=0; count < ${#arg_list[*]}; count++)) {
 				datual=${arg_list[count]}
 			else
 				datual=${arg#*=}
-			fi
-			if [[ -d $(pwd)/$datual ]]; then	#Essa sequencia de if tenta detectar posições relativas passadas como argumento, e reoganizá-lo
-				datual=$(pwd)/$datual
-			elif [[ -d $HOME${arg#*~} ]]; then	#Para pastas relativas ao diretório do script (ex: -d folder/subfolder)
-				datual=$HOME${arg#*~}
-			elif [[ ! -d $datual ]]; then		#Para argumentos relativos a home (ex: ~/folder/subfolder)
-				echo "'$datual' não foi reconhecido como um diretório válido"
-				exit 2
 			fi ;;
 		*)
 			echo "$arg é um argumento inválido"
@@ -93,5 +85,14 @@ if [[ $arg_teste == 1 ]]; then
 fi
 if [[ $arg_dir == 1 ]]; then
 	echo "Argumento dir usado"
+	datual=${datual%/}	#remove o último '/' se existir
+	if [[ -d $(pwd)/$datual ]]; then	#Essa sequencia de if tenta detectar posições relativas passadas como argumento, e reoganizá-lo
+		datual=$(pwd)/$datual
+	elif [[ -d $HOME${arg#*~} ]]; then	#Para pastas relativas ao diretório do script (ex: -d folder/subfolder)
+		datual=$HOME${arg#*~}
+	elif [[ ! -d $datual ]]; then		#Para argumentos relativos a home (ex: ~/folder/subfolder)
+		echo "'$datual' não foi reconhecido como um diretório válido"
+		exit 2
+	fi 
 	echo "Diretório selecionado como '$datual'"
 fi

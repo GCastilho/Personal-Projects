@@ -111,10 +111,8 @@ desmontar()
 
 delete()
 {
-	if [[ $custom_dir == 1 ]]; then
-		datual="$datual"/convertidos
-		autodelete=1
-	fi
+	echo "Removendo arquivos temporários usados pelo script"
+	rm -vrf "$datual"/convertidos
 	if [ $autodelete -eq 1 ]; then
 		echo "Deletando pasta '$datual'"
 		cd ~
@@ -239,16 +237,6 @@ checkargumento()
 					datual=${arg_list[count]}
 				else
 					datual=${arg#*=}
-				fi
-				datual=${datual%/}	#remove o último '/' se existir
-				if [[ -d $(pwd)/$datual ]]; then	#Essa sequencia de if tenta detectar posições relativas passadas como argumento, e reoganizá-lo
-					datual=$(pwd)/$datual
-				elif [[ -d $HOME${arg#*~} ]]; then	#Para pastas relativas ao diretório do script (ex: -d folder/subfolder)
-					datual=$HOME${arg#*~}
-				elif [[ ! -d $datual ]]; then		#Para argumentos relativos a home (ex: ~/folder/subfolder)
-					echo "'$datual' não foi reconhecido como um diretório válido"
-					echo "Interrompendo o script"
-					exit 2
 				fi ;;
 			*)
 				echo "O argumento '${arg#*-}' é um argumento inválido"	#Remove o '-' do argumento ao mostrar para o usuário
@@ -261,6 +249,18 @@ checkargumento()
 		echo -e "\e[01;31mAVISO:\e[0m"
 		echo "O argumento \"-D\" foi utilizado, autorizando a remoção automática do diretório atual no fim do script sem questionar"
 		echo
+	fi
+	if [[ $custom_dir == 1 ]]; then
+		datual=${datual%/}	#remove o último '/' se existir
+		if [[ -d $(pwd)/$datual ]]; then	#Essa sequencia de if tenta detectar posições relativas passadas como argumento, e reoganizá-lo
+			datual=$(pwd)/$datual
+		elif [[ -d $HOME${arg#*~} ]]; then	#Para pastas relativas ao diretório do script (ex: -d folder/subfolder)
+			datual=$HOME${arg#*~}
+		elif [[ ! -d $datual ]]; then		#Para argumentos relativos a home (ex: ~/folder/subfolder)
+			echo "'$datual' não foi reconhecido como um diretório válido"
+			echo "Interrompendo o script"
+			exit 2
+		fi
 	fi
 }
 
@@ -360,7 +360,7 @@ main()
 	echo "Esse programa usa mencoder"
 	echo
 	ambientvar          #Seta variáveis que serão as mesmas em todas as funções e são necessárias desde sempre
-	checkargumento		#Checar os argumentos dados ao script e toma as medidas para tal
+	checkargumento		#Checa os argumentos dados ao script e toma as medidas para tal
 	echo "O diretório atual é: \"$datual\""
 	checkdbfile         #Checa se o arquivo de banco de dados existe (lembrando que um argumento pode indicar outro DB, por isso ele checa depois da função 'checkargumento')
 	checkconvertidos    #checa se a pasta 'convertidos' existe
