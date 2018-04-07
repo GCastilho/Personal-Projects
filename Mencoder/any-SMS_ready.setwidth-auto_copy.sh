@@ -196,31 +196,38 @@ setlang()
 
 checkargumento()
 {
-	arg=($*)			#coloca os argumentos em um array
+	arg=("$@")			#coloca os argumentos em um array
 	unset arg_list
 	opt_args="d"			#Os argumentos dessa variável são os que OBRIGATORIAMENTE precisam de uma opção passada como outro argumento (ex: -d /bin/bash)
 	for ((count=0; count < ${#arg[*]}; count++)) {		#Lista recursivamente os itens do array dos argumentos
 		if [ "${arg[count]:0:1}" == "-" ]; then			#Testa se o argumento começa com traço '-'
 			if [ "${arg[count]:1:1}" == "-" ]; then		#Testa se o argumento tem um segundo traço ('--')
-				arg_list="$arg_list ${arg[count]}"
+				if [[ ! -z ${arg[count]} ]]; then		#Adiciona o item no array apenas se ele não é nulo
+					arg_list[var++]="${arg[count]}"
+				fi
 			else
 				i=0		#i controla em qual palavra a opção passada como argumento está, relativamente a posição do array sendo analisada
 				for ((char=1; char<${#arg[count]}; char++)) {	#Lista recursivamente os caracteres do item do array; char=1 para ignorar o '-'
-					arg_list="$arg_list -${arg[count]:char:1}"	#Coloca o char do argumento na lista de argumentos
-					if [[ ! -z $opt_args ]]; then				#If necessário se $opt_args estiver vazia
-						if echo ${arg[count]:char:1} | grep [$opt_args] >/dev/null; then	#Verifica se ${arg[count]:char:1} contêm algum char de $opt_args
-							((i++))									#Incrementa o controle de organização das opções passadas como argumentos
-							arg_list="$arg_list ${arg[count+i]}"	#Coloca a opção do cada argumento em seguida dele (-ab opa opb)
-							arg[count+i]=""							#Limpa a posição no array, para impedir que o argumento seja duplicado na lsita
+					if [[ ! -z ${arg[count]:char:1} ]]; then	#Adiciona o item no array apenas se ele não é nulo
+						arg_list[var++]="-${arg[count]:char:1}"		#Coloca o char do argumento na lista de argumentos
+						if [[ ! -z $opt_args ]]; then				#If necessário se $opt_args estiver vazia
+							if echo ${arg[count]:char:1} | grep [$opt_args] >/dev/null; then	#Verifica se ${arg[count]:char:1} contêm algum char de $opt_args
+								((i++))											#Incrementa o controle de organização das opções passadas como argumentos
+								if [[ ! -z ${arg[count+i]} ]]; then				#Adiciona o item no array apenas se ele não é nulo
+									arg_list[var++]="${arg[count+i]}"			#Coloca a opção do cada argumento em seguida dele (-ab opa opb)
+									arg[count+i]=""								#Limpa a posição no array, para impedir que o argumento seja duplicado na lsita
+								fi
+							fi
 						fi
 					fi
 				}
 			fi
 		else
-			arg_list="$arg_list ${arg[count]}"			#Adiciona argumentos que não começam com traço na lista
+			if [[ ! -z ${arg[count]} ]]; then			#Adiciona o item no array apenas se ele não é nulo
+				arg_list[var++]="${arg[count]}"			#Adiciona argumentos que não começam com traço na lista
+			fi
 		fi
 	}
-	arg_list=($arg_list)	#Transforma a lista de argumentos em um vetor
 	for ((count=0; count < ${#arg_list[*]}; count++)) {
 		arg=${arg_list[count]}
 		case $arg in
