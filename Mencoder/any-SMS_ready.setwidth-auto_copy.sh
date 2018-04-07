@@ -307,17 +307,17 @@ srtextract()
 	if [ ! -f "$datual"/"$filename.srt" ] && [ "a_lang" != "por" ]; then	#Uma função que detecta se existe uma faixa em 'por' no vídeo é melhor (para o 2º test)
 		n_fluxos_pt=0
 		stream_num=0
-		stream_indexes=$($ffprobe_command "$arq" | jq .streams[].index | wc -l)
+		stream_indexes=$($ffprobe_command "$datual"/"$arq" | jq .streams[].index | wc -l)
 		unset srt_streams
 		unset por_stream
 		while [ $stream_num -lt $stream_indexes ]; do
-			if [ "$($ffprobe_command "$arq" | jq --raw-output .streams[$stream_num].codec_type)" == "subtitle" ]; then
+			if [ "$($ffprobe_command "$datual"/"$arq" | jq --raw-output .streams[$stream_num].codec_type)" == "subtitle" ]; then
 				srt_streams="${srt_streams} $stream_num"
 			fi
 			((stream_num++))
 		done
 		for fluxo in $srt_streams; do
-			fluxo_lang=$($ffprobe_command "$arq" | jq --raw-output .streams[$fluxo].tags.language)
+			fluxo_lang=$($ffprobe_command "$datual"/"$arq" | jq --raw-output .streams[$fluxo].tags.language)
 			if [ "$fluxo_lang" == "por" ]; then
 				por_stream="${por_stream} $fluxo"
 				((n_fluxos_pt++))
@@ -326,7 +326,7 @@ srtextract()
 		if [ $n_fluxos_pt -eq 1 ]; then
 			echo "Foi encontrado um fluxo de legenda em portugues dentro do arquivo de vídeo"
 			echo "Extraindo fluxo de legenda para arquivo srt..."
-			mkvextract tracks "$datual/$arq" $por_stream:"$datual/$filename.srt"
+			mkvextract tracks "$datual/$arq" $por_stream:"$datual/convertidos/$filename.srt"
 			echo "Extração completa"
 		else
 			if [ $n_fluxos_pt -gt 1 ]; then
@@ -340,11 +340,11 @@ srtextract()
 
 copiasrt()
 {
-	srt_count=$(ls -1 "$datual"/convertidos/"$origem"*.srt 2>/dev/null | wc -l)  
+	srt_count=$(ls -1 "$datual"/*.srt 2>/dev/null | wc -l)  
 	if [ $srt_count -gt 0 ]; then
-		echo "Detectado arquivos de legenda no diretório de cópia"
-		echo "Copiando arquivos para a pasta 'convertidos'"
-		if mv -v "$datual"/*.srt convertidos/; then
+		echo "Detectado arquivos de legenda em '$datual'"
+		echo "Copiando arquivos de legenda para a pasta 'convertidos'"
+		if cp -v "$datual"/*.srt "$datual"/convertidos/; then
 			echo "Arquivos copiados com sucesso"
 		else
 			echo "Erro na cópia do arquivos de legenda"
