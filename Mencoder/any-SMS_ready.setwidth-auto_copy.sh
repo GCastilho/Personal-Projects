@@ -251,7 +251,7 @@ checkargumento()
 					exit 2
 				fi ;;
 			*)
-				echo "Argumento '${arg#*-}' é um argumento inválido"	#Remove o '-' do argumento ao mostrar para o usuário
+				echo "O argumento '${arg#*-}' é um argumento inválido"	#Remove o '-' do argumento ao mostrar para o usuário
 				echo "Interrompendo script"
 				exit 2 ;;
 			#X) Um argumento que permita juntar todas as saídas em um único arquivo, como esse comando "mencoder -oac copy -ovc copy file1.avi file2.avi file3.avi -o full_movie.avi"
