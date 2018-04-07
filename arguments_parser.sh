@@ -11,7 +11,7 @@ echo
 
 arg=($*)			#coloca os argumentos em um array
 unset arg_list
-opt_args=qt			#Os argumentos dessa variável são os que OBRIGATORIAMENTE precisam de uma opção passada como outro argumento (ex: -d /bin/bash)
+opt_args="qtd"			#Os argumentos dessa variável são os que OBRIGATORIAMENTE precisam de uma opção passada como outro argumento (ex: -d /bin/bash)
 for ((count=0; count < ${#arg[*]}; count++)) {		#Lista recursivamente os itens do array dos argumentos
 	if [ "${arg[count]:0:1}" == "-" ]; then			#Testa se o argumento começa com traço '-'
 		if [ "${arg[count]:1:1}" == "-" ]; then		#Testa se o argumento tem um segundo traço ('--')
@@ -19,8 +19,8 @@ for ((count=0; count < ${#arg[*]}; count++)) {		#Lista recursivamente os itens d
 		else
 			i=0		#i controla em qual palavra a opção passada como argumento está, relativamente a posição do array sendo analisada
 			for ((char=1; char<${#arg[count]}; char++)) {	#Lista recursivamente os caracteres do item do array; char=1 para ignorar o '-'
-				arg_list="$arg_list -${arg[count]:char:1}"			#Coloca o char do argumento na lista de argumentos
-				if [[ ! -z $opt_args ]]; then		#If necessário se $opt_args estiver vazia
+				arg_list="$arg_list -${arg[count]:char:1}"	#Coloca o char do argumento na lista de argumentos
+				if [[ ! -z $opt_args ]]; then				#If necessário se $opt_args estiver vazia
 					if echo ${arg[count]:char:1} | grep [$opt_args] >/dev/null; then	#Verifica se ${arg[count]:char:1} contêm algum char de $opt_args
 						((i++))											#Incrementa o controle de organização das opções passadas como argumentos
 						arg_list="$arg_list ${arg[count+i]}"			#Coloca a opção do cada argumento em seguida dele (-ab opa opb)
@@ -33,7 +33,7 @@ for ((count=0; count < ${#arg[*]}; count++)) {		#Lista recursivamente os itens d
 		arg_list="$arg_list ${arg[count]}"			#Adiciona argumentos que não começam com traço na lista
 	fi
 }
-arg_list=($arg_list)	#Transforma a lista de argumentos em um vetor
+arg_list=($arg_list)		#Transforma a lista de argumentos em um vetor
 for ((count=0; count < ${#arg_list[*]}; count++)) {
 	arg=${arg_list[count]}
 	case $arg in
@@ -45,11 +45,27 @@ for ((count=0; count < ${#arg_list[*]}; count++)) {
 			arg_w=1 ;;
 		-t|--teste=*)
 			arg_teste=1
-			if [ "${arg:1:1}" == "-" ]; then
+			if [[ ${arg:1:1} == "-" ]]; then
 				data_arg_teste=${arg#*=}
 			else
 				((count++))		#Incrementa o count para que a opção do argumento seja ignorada
 				data_arg_teste=${arg_list[count]}
+			fi ;;
+		-d|--dir=*)
+			arg_dir=1
+			if [[ $arg == "-d" ]]; then
+				((count++))
+				datual=${arg_list[count]}
+			else
+				datual=${arg#*=}
+			fi
+			if [[ -d $(pwd)/$datual ]]; then
+				datual=$(pwd)/$datual
+			elif [[ -d $HOME${arg#*~} ]]; then
+				datual=$HOME${arg#*~}
+			elif [[ ! -d $datual ]]; then
+				echo "'$datual' não foi reconhecido como um diretório válido"
+				exit 2
 			fi ;;
 		*)
 			echo "$arg é um argumento inválido"
@@ -67,4 +83,8 @@ fi
 if [[ $arg_teste == 1 ]]; then
 	echo "Argumento teste"
 	echo "Dado argumento teste: $data_arg_teste"
+fi
+if [[ $arg_dir == 1 ]]; then
+	echo "Argumento dir usado"
+	echo "Diretório selecionado como '$datual'"
 fi

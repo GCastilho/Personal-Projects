@@ -3,8 +3,8 @@
 
 setresolucao()
 {
-	coded_width=$(ffprobe -v quiet -show_format -show_streams "$arq" | grep coded_width=)
-	coded_height=$(ffprobe -v quiet -show_format -show_streams "$arq" | grep coded_height=)
+	coded_width=$(ffprobe -v quiet -show_format -show_streams "$datual"/"$arq" | grep coded_width=)
+	coded_height=$(ffprobe -v quiet -show_format -show_streams "$datual"/"$arq" | grep coded_height=)
 	coded_width=${coded_width#coded_width=}
 	coded_height=${coded_height#coded_height=}
 	if [[ -z $coded_width ]] || [[ -z $coded_height ]]; then
@@ -23,20 +23,21 @@ converter()
 {
 	echo "A conversão começará em 10 segundos"
 	sleep 10
-	mkdir convertidos
+	mkdir "$datual/convertidos"
 	exec_numb=0
 	while [ $exec_numb -lt $n_ext ]
 	do
 		exec_numb=$(( exec_numb+1 ))		    #incrementa a variável para registrar que o while foi executado mais uma vez
 		eval extensao='$'extensao_$exec_numb    #A variável "extensao" vai receber o valor contido na variável "extensao_X", da função "setextensao"
-		for arq in *.$extensao
+		for arq in "$datual"/*.$extensao
 		do
+			arq=${arq#$datual/}					#Remove o caminho do arquivo da variável
 			echo -e "\e[1;35mConvertendo $arq\e[0m"
 			setresolucao						#chama a função que configura a resolução individualmente para cada arquivo
 			srtextract							#chama a função que irá extrair a legenda do arquivo de vídeo para um arquivo srt
 			if [ $skip_file -eq 0 ]; then
 				sleep 2
-				mencoder "$arq" -oac mp3lame -lameopts br=256 -af resample=48000 -ovc lavc -vf scale=670:$altura -ffourcc XVID -alang $a_lang -lavcopts vbitrate=16000:autoaspect -nosub -msgcolor -o convertidos/"${arq/.$extensao/.avi}"
+				mencoder "$datual"/"$arq" -oac mp3lame -lameopts br=256 -af resample=48000 -ovc lavc -vf scale=670:$altura -ffourcc XVID -alang $a_lang -lavcopts vbitrate=16000:autoaspect -nosub -msgcolor -o "$datual"/convertidos/"${arq/.$extensao/.avi}"
 				echo	#pula uma linha após o fim da saída de texto do mencoder
 			else
 				echo "Pulando conversão do arquivo devido a erro na definição de variáveis"
@@ -53,21 +54,23 @@ copia()
 	sleep 5
 	while read origem destino
 	do
-		conv_count=$(ls -1 convertidos/"$origem"* 2>/dev/null | wc -l)  
+		conv_count=$(ls -1 $datual/convertidos/"$origem"* 2>/dev/null | wc -l)  
 		if [ $conv_count != 0 ]; then
-			mv -v convertidos/"$origem"* ~/"$destino" #entao, o asterisco tem que vir depois pq se ele estiver dentro das aspas o sistema reconhece que faz parte da palavra, e nao como caractere "de abrangencia"
+			mv -v "$datual"/convertidos/"$origem"* ~/"$destino" #entao, o asterisco tem que vir depois pq se ele estiver dentro das aspas o sistema reconhece que faz parte da palavra, e nao como caractere "de abrangencia"
 		fi
 	done < "$db_file"
-	if [ "$(ls -A convertidos)" ]; then
-		mv -v convertidos/*    ~/Public/Videos/    #Embora não tenha deixar essa linha da DB, essa e uma maneira de garantir que sera a última a ser executada
+	if [ "$(ls -A $datual/convertidos)" ]; then
+		mv -v "$datual"/convertidos/*    ~/Public/Videos/    #Embora não tenha deixar essa linha da DB, essa e uma maneira de garantir que sera a última a ser executada
 	fi
 	echo "Fim da cópia dos arquivos"
 }
 
 montar()
 {
+	echo "Tentando conexão com $file_host ($file_host_name)"
 	ping -c 1 $file_host > /dev/null
 	if [[ $? -eq 0 ]]; then
+		echo "Conexão com $file_host_name bem-sucedida"
 		if mountpoint -q ~/Public/Videos/; then
 			echo "Pasta Videos já montada, pulando montagem"
 			montada=1
@@ -84,7 +87,7 @@ montar()
 			fi
 		fi
 	else
-		echo "Erro na conexão com $file_host ($file_host_name)"
+		echo "Erro na conexão com $file_host_name"
 		echo "Interrompendo o script"
 		exit 1
 	fi
@@ -108,6 +111,10 @@ desmontar()
 
 delete()
 {
+	if [[ $custom_dir == 1 ]]; then
+		datual="$datual"/convertidos
+		autodelete=1
+	fi
 	if [ $autodelete -eq 1 ]; then
 		echo "Deletando pasta '$datual'"
 		cd ~
@@ -132,7 +139,7 @@ delete()
 
 checkempty()
 {
-	if [ ! "$(ls -A convertidos)" ]; then
+	if [[ ! $(ls -A "$datual"/convertidos) ]]; then
 		echo "A pasta 'convertidos' está vazia, isso provavelmente ocorreu por um erro na conversão"
 		echo "Encerrando o script"
 		sleep 10
@@ -191,7 +198,7 @@ checkargumento()
 {
 	arg=($*)			#coloca os argumentos em um array
 	unset arg_list
-	opt_args=""			#Os argumentos dessa variável são os que OBRIGATORIAMENTE precisam de uma opção passada como outro argumento (ex: -d /bin/bash)
+	opt_args="d"			#Os argumentos dessa variável são os que OBRIGATORIAMENTE precisam de uma opção passada como outro argumento (ex: -d /bin/bash)
 	for ((count=0; count < ${#arg[*]}; count++)) {		#Lista recursivamente os itens do array dos argumentos
 		if [ "${arg[count]:0:1}" == "-" ]; then			#Testa se o argumento começa com traço '-'
 			if [ "${arg[count]:1:1}" == "-" ]; then		#Testa se o argumento tem um segundo traço ('--')
@@ -199,12 +206,12 @@ checkargumento()
 			else
 				i=0		#i controla em qual palavra a opção passada como argumento está, relativamente a posição do array sendo analisada
 				for ((char=1; char<${#arg[count]}; char++)) {	#Lista recursivamente os caracteres do item do array; char=1 para ignorar o '-'
-					arg_list="$arg_list -${arg[count]:char:1}"			#Coloca o char do argumento na lista de argumentos
-					if [[ ! -z $opt_args ]]; then		#If necessário se $opt_args estiver vazia
+					arg_list="$arg_list -${arg[count]:char:1}"	#Coloca o char do argumento na lista de argumentos
+					if [[ ! -z $opt_args ]]; then				#If necessário se $opt_args estiver vazia
 						if echo ${arg[count]:char:1} | grep [$opt_args] >/dev/null; then	#Verifica se ${arg[count]:char:1} contêm algum char de $opt_args
-							((i++))											#Incrementa o controle de organização das opções passadas como argumentos
-							arg_list="$arg_list ${arg[count+i]}"			#Coloca a opção do cada argumento em seguida dele (-ab opa opb)
-							arg[count+i]=""									#Limpa a posição no array, para impedir que o argumento seja duplicado na lsita
+							((i++))									#Incrementa o controle de organização das opções passadas como argumentos
+							arg_list="$arg_list ${arg[count+i]}"	#Coloca a opção do cada argumento em seguida dele (-ab opa opb)
+							arg[count+i]=""							#Limpa a posição no array, para impedir que o argumento seja duplicado na lsita
 						fi
 					fi
 				}
@@ -217,26 +224,43 @@ checkargumento()
 	for ((count=0; count < ${#arg_list[*]}; count++)) {
 		arg=${arg_list[count]}
 		case $arg in
-			-d)
+			-D)
 				autodelete=1 ;;
+			-d|--dir=*)
+				custom_dir=1
+				if [[ $arg == "-d" ]]; then
+					((count++))
+					datual=${arg_list[count]}
+				else
+					datual=${arg#*=}
+				fi
+				datual=${datual%/}	#remove o último '/' se existir
+				if [[ -d $(pwd)/$datual ]]; then
+					datual=$(pwd)/$datual
+				elif [[ -d $HOME${arg#*~} ]]; then
+					datual=$HOME${arg#*~}
+				elif [[ ! -d $datual ]]; then
+					echo "'$datual' não foi reconhecido como um diretório válido"
+					echo "Interrompendo o script"
+					exit 2
+				fi ;;
 			*)
 				echo "Argumento '${arg#*-}' é um argumento inválido"	#Remove o '-' do argumento ao mostrar para o usuário
 				echo "Interrompendo script"
 				exit 2 ;;
 			#X) Um argumento que permita juntar todas as saídas em um único arquivo, como esse comando "mencoder -oac copy -ovc copy file1.avi file2.avi file3.avi -o full_movie.avi"
-			#X) Um argumento de defina um diretório atual diferente
 		esac
 	}
 	if [[ $autodelete == 1 ]]; then
 		echo -e "\e[01;31mAVISO:\e[0m"
-		echo "O argumento \"-d\" foi utilizado, autorizando a remoção automática do diretório atual no fim do script sem questionar"
+		echo "O argumento \"-D\" foi utilizado, autorizando a remoção automática do diretório atual no fim do script sem questionar"
 		echo
 	fi
 }
 
 checkconvertidos()
 {
-	if [ -d "convertidos" ]; then
+	if [ -d "$datual"/"convertidos" ]; then
 		echo "A pasta 'convertidos' já existe, isso pode significar que os arquivos já foram convertidos mas por algum motivo não foram copiados"
 		echo "Deseja pular a conversão e simplesmente copiar os arquivos para a pasta Videos?"
 		echo "S/n"
@@ -274,20 +298,20 @@ ambientvar()
 srtextract()
 {
 	filename=${arq%.$extensao*}
-	if [ ! -f "$datual/$filename.srt" ] && [ "a_lang" != "por" ]; then	#Uma função que detecta se existe uma faixa em 'por' no vídeo é melhor (para o 2º test)
+	if [ ! -f "$datual"/"$filename.srt" ] && [ "a_lang" != "por" ]; then	#Uma função que detecta se existe uma faixa em 'por' no vídeo é melhor (para o 2º test)
 		n_fluxos_pt=0
 		stream_num=0
-		stream_indexes=$($ffprobe_command "$datual"/"$arq" | jq .streams[].index | wc -l)
+		stream_indexes=$($ffprobe_command "$arq" | jq .streams[].index | wc -l)
 		unset srt_streams
 		unset por_stream
 		while [ $stream_num -lt $stream_indexes ]; do
-			if [ "$($ffprobe_command "$datual"/"$arq" | jq --raw-output .streams[$stream_num].codec_type)" == "subtitle" ]; then
+			if [ "$($ffprobe_command "$arq" | jq --raw-output .streams[$stream_num].codec_type)" == "subtitle" ]; then
 				srt_streams="${srt_streams} $stream_num"
 			fi
 			((stream_num++))
 		done
 		for fluxo in $srt_streams; do
-			fluxo_lang=$($ffprobe_command "$datual"/"$arq" | jq --raw-output .streams[$fluxo].tags.language)
+			fluxo_lang=$($ffprobe_command "$arq" | jq --raw-output .streams[$fluxo].tags.language)
 			if [ "$fluxo_lang" == "por" ]; then
 				por_stream="${por_stream} $fluxo"
 				((n_fluxos_pt++))
@@ -310,11 +334,11 @@ srtextract()
 
 copiasrt()
 {
-	srt_count=$(ls -1 convertidos/"$origem"* 2>/dev/null | wc -l)  
+	srt_count=$(ls -1 "$datual"/convertidos/"$origem"*.srt 2>/dev/null | wc -l)  
 	if [ $srt_count -gt 0 ]; then
 		echo "Detectado arquivos de legenda no diretório de cópia"
 		echo "Copiando arquivos para a pasta 'convertidos'"
-		if mv -v *.srt convertidos/; then
+		if mv -v "$datual"/*.srt convertidos/; then
 			echo "Arquivos copiados com sucesso"
 		else
 			echo "Erro na cópia do arquivos de legenda"
