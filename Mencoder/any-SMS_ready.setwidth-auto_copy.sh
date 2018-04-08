@@ -71,10 +71,9 @@ copia()
 montar()
 {
 	echo "Tentando conexão com $file_host_name ($file_host)"
-	ping -c 1 $file_host > /dev/null
-	if [ $? -eq 0 ]; then
+	if ( ping -c 1 $file_host &> /dev/null ); then
 		echo "Conexão com $file_host_name bem-sucedida"
-		if mountpoint -q ~/Public/Videos/; then
+		if ( mountpoint -q ~/Public/Videos/ ); then
 			echo "Pasta Videos já montada, pulando montagem"
 			montada=1
 		else
@@ -101,7 +100,7 @@ desmontar()
 	if [ $montada -eq 0 ]; then
 		echo "Desmontando a pasta Vídeos"
 		umount ~/Public/Videos/
-		if mountpoint -q ~/Public/Videos/; then
+		if ( mountpoint -q ~/Public/Videos/ ); then
 			echo "Houve um erro na desmontagem"
 			echo "A Pasta não foi desmontada"
 		else
@@ -170,7 +169,7 @@ setextensao()
 	do
 		exec_numb=$(( exec_numb+1 ))		#incrementa a variável para registrar que o while foi executado mais uma vez
 		echo "Selecione a extensão $exec_numb"
-		if [ "$exec_numb" = 1 ]; then
+		if [ "$exec_numb" -eq 1 ]; then
 			echo "Deixe em branco para 'mkv'"
 		fi
 		read leitura_extensao
@@ -209,8 +208,8 @@ checkargumento()
 	unset arg_list
 	opt_args="d"			#Os argumentos dessa variável são os que OBRIGATORIAMENTE precisam de uma opção passada como outro argumento (ex: -d /bin/bash)
 	for ((count=0; count < ${#arg[*]}; count++)) {		#Lista recursivamente os itens do array dos argumentos
-		if [ "${arg[count]:0:1}" == "-" ]; then			#Testa se o argumento começa com traço '-'
-			if [ "${arg[count]:1:1}" == "-" ]; then		#Testa se o argumento tem um segundo traço ('--')
+		if [[ "${arg[count]:0:1}" == "-" ]]; then			#Testa se o argumento começa com traço '-'
+			if [[ "${arg[count]:1:1}" == "-" ]]; then		#Testa se o argumento tem um segundo traço ('--')
 				if [[ ! -z ${arg[count]} ]]; then		#Adiciona o item no array apenas se o ítem não é nulo
 					arg_list[arr++]="${arg[count]}"
 				fi
@@ -220,7 +219,7 @@ checkargumento()
 					if [[ ! -z ${arg[count]:char:1} ]]; then	#Adiciona o item no array apenas se o ítem não é nulo
 						arg_list[arr++]="-${arg[count]:char:1}"		#Coloca o char do argumento na lista de argumentos
 						if [[ ! -z $opt_args ]]; then				#If necessário se $opt_args estiver vazia
-							if echo ${arg[count]:char:1} | grep [$opt_args] >/dev/null; then	#Verifica se ${arg[count]:char:1} contêm algum char de $opt_args
+							if ( echo ${arg[count]:char:1} | grep [$opt_args] >/dev/null ); then	#Verifica se ${arg[count]:char:1} contêm algum char de $opt_args
 								((i++))											#Incrementa o controle de organização das opções passadas como argumentos
 								if [[ ! -z ${arg[count+i]} ]]; then				#Adiciona o item no array apenas se o ítem não é nulo
 									arg_list[arr++]="${arg[count+i]}"			#Coloca a opção do cada argumento em seguida dele (-ab opa opb)
