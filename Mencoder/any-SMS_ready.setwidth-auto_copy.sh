@@ -7,7 +7,7 @@ setresolucao()
 	coded_height=$(ffprobe -v quiet -show_format -show_streams "$datual"/"$arq" | grep coded_height=)
 	coded_width=${coded_width#coded_width=}
 	coded_height=${coded_height#coded_height=}
-	if [[ -z $coded_width ]] || [[ -z $coded_height ]]; then
+	if [ -z $coded_width ] || [ -z $coded_height ]; then
 		echo "Erro na definição da resolução: Leitura de variáveis incorreta"
 		sleep 5
 		skip_file=1
@@ -23,7 +23,9 @@ converter()
 {
 	echo "A conversão começará em 10 segundos"
 	sleep 10
-	mkdir "$datual/convertidos"
+	if [ ! -d "$datual"/convertidos ]; then		#Checa se a pasta convertidos não existe
+		mkdir "$datual/convertidos"				#Cria ela apenas se não existir
+	fi
 	exec_numb=0
 	while [ $exec_numb -lt $n_ext ]
 	do
@@ -51,25 +53,26 @@ converter()
 copia()
 {
 	echo "Iniciando cópia dos arquivos"
+	echo
 	sleep 5
 	while read origem destino
 	do
-		conv_count=$(ls -1 $datual/convertidos/"$origem"* 2>/dev/null | wc -l)  
-		if [ $conv_count != 0 ]; then
-			mv -v "$datual"/convertidos/"$origem"* ~/"$destino" #entao, o asterisco tem que vir depois pq se ele estiver dentro das aspas o sistema reconhece que faz parte da palavra, e nao como caractere "de abrangencia"
+		if [[ $(ls -1 "$datual"/convertidos/"$origem"* 2>/dev/null | wc -l) > 0 ]]; then	#Check se um arquivo que começa com '$origem' existe
+			mv -v "$datual"/convertidos/"$origem"* ~/"$destino"								#Copia os arquivos que começam com '$origem' para '$destino'
 		fi
 	done < "$db_file"
-	if [ "$(ls -A $datual/convertidos)" ]; then
-		mv -v "$datual"/convertidos/*    ~/Public/Videos/    #Embora não tenha deixar essa linha da DB, essa e uma maneira de garantir que sera a última a ser executada
+	if [[ $(ls -A "$datual"/convertidos 2>/dev/null | wc -l) > 0 ]]; then	#Checa se há arquivos restantes na pasta convertidos
+		mv -v "$datual"/convertidos/*    ~/Public/Videos/    				#Copia arquivos restantes da pasta convertidos para a '~/Public/Videos/'
 	fi
 	echo "Fim da cópia dos arquivos"
+	echo
 }
 
 montar()
 {
-	echo "Tentando conexão com $file_host ($file_host_name)"
+	echo "Tentando conexão com $file_host_name ($file_host)"
 	ping -c 1 $file_host > /dev/null
-	if [[ $? -eq 0 ]]; then
+	if [ $? -eq 0 ]; then
 		echo "Conexão com $file_host_name bem-sucedida"
 		if mountpoint -q ~/Public/Videos/; then
 			echo "Pasta Videos já montada, pulando montagem"
@@ -78,7 +81,7 @@ montar()
 			echo "Montando a pasta Videos de $file_host_name"
 			montada=0
 			mount ~/Public/Videos/
-			if mountpoint -q ~/Public/Videos/; then
+			if ( mountpoint -q ~/Public/Videos/ ); then
 				echo "Montagem bem sucedida"
 			else
 				echo "Erro na montagem, a pasta não foi montada"
@@ -112,21 +115,30 @@ desmontar()
 delete()
 {
 	echo "Removendo arquivos temporários usados pelo script"
-	rm -vrf "$datual"/convertidos
+	if [[ $(ls -A "$datual"/convertidos 2>/dev/null | wc -l) == 0 ]]; then
+		if ( ! rm -vrf "$datual"/convertidos ); then
+			echo "Erro ao deletar pasta 'convertidos'"
+			echo "Interrompendo script"
+			exit 1
+		fi
+	else
+		echo "A pasta 'convertidos' não estava vazia, isso significa que houve um erro ao copiar os arquivos para a pasta Vídeos"
+		exit 1
+	fi
 	if [ $autodelete -eq 1 ]; then
 		echo "Deletando pasta '$datual'"
 		cd ~
 		rm -vrf "$datual"
 	else
 		echo "Deletar a pasta '$datual'?"
-		echo "S/n"
+		echo "s/N"
 		read deletar
 		case $deletar in
-			S|""|s)
+			S|s)
 				echo "Deletando pasta '$datual'"
 				cd ~
 				rm -vrf "$datual" ;;
-			n|N)
+			N|""|n)
 				echo "A pasta '$datual' não foi deletada" ;;
 			*)
 				echo "Responda 'S' para Sim, 'n' para Não ou deixe em branco para 'Sim'"
@@ -162,7 +174,7 @@ setextensao()
 			echo "Deixe em branco para 'mkv'"
 		fi
 		read leitura_extensao
-		if [ "$exec_numb" = 1 ]; then
+		if [ "$exec_numb" -eq 1 ]; then
 			if [ ! "$leitura_extensao" ]; then
 				leitura_extensao=mkv
 			fi
@@ -304,21 +316,21 @@ ambientvar()
 srtextract()
 {
 	filename=${arq%.$extensao*}
-	if [ ! -f "$datual"/"$filename.srt" ] && [ "a_lang" != "por" ]; then	#Uma função que detecta se existe uma faixa em 'por' no vídeo é melhor (para o 2º test)
+	if [ ! -f "$datual"/"$filename.srt" ] && [[ "$a_lang" != "por" ]]; then	#Uma função que detecta se existe uma faixa em 'por' no vídeo é melhor (para o 2º test)
 		n_fluxos_pt=0
 		stream_num=0
 		stream_indexes=$($ffprobe_command "$datual"/"$arq" | jq .streams[].index | wc -l)
 		unset srt_streams
 		unset por_stream
 		while [ $stream_num -lt $stream_indexes ]; do
-			if [ "$($ffprobe_command "$datual"/"$arq" | jq --raw-output .streams[$stream_num].codec_type)" == "subtitle" ]; then
+			if [[ "$($ffprobe_command "$datual"/"$arq" | jq --raw-output .streams[$stream_num].codec_type)" == "subtitle" ]]; then
 				srt_streams="${srt_streams} $stream_num"
 			fi
 			((stream_num++))
 		done
 		for fluxo in $srt_streams; do
 			fluxo_lang=$($ffprobe_command "$datual"/"$arq" | jq --raw-output .streams[$fluxo].tags.language)
-			if [ "$fluxo_lang" == "por" ]; then
+			if [[ "$fluxo_lang" == "por" ]]; then
 				por_stream="${por_stream} $fluxo"
 				((n_fluxos_pt++))
 			fi
@@ -326,8 +338,13 @@ srtextract()
 		if [ $n_fluxos_pt -eq 1 ]; then
 			echo "Foi encontrado um fluxo de legenda em portugues dentro do arquivo de vídeo"
 			echo "Extraindo fluxo de legenda para arquivo srt..."
-			mkvextract tracks "$datual/$arq" $por_stream:"$datual/convertidos/$filename.srt"
-			echo "Extração completa"
+			if (mkvextract tracks "$datual/$arq" $por_stream:"$datual/convertidos/$filename.srt"); then
+				echo "Extração completa"
+			else
+				echo "Erro na extração da legenda"
+				echo "Interrompendo Script"
+				exit 1
+			fi
 		else
 			if [ $n_fluxos_pt -gt 1 ]; then
 				echo "ALERTA: Não há arquivo externo de legenda para '$arq' MAS foi encontrado mais de um fluxo de legenda em portugues no arquivo de video"
@@ -340,12 +357,13 @@ srtextract()
 
 copiasrt()
 {
-	srt_count=$(ls -1 "$datual"/*.srt 2>/dev/null | wc -l)  
-	if [ $srt_count -gt 0 ]; then
+	if [ $(ls -1 "$datual"/*.srt 2>/dev/null | wc -l) -gt 0 ]; then
 		echo "Detectado arquivos de legenda em '$datual'"
 		echo "Copiando arquivos de legenda para a pasta 'convertidos'"
-		if cp -v "$datual"/*.srt "$datual"/convertidos/; then
+		echo
+		if ( cp -v "$datual"/*.srt "$datual"/convertidos/ ); then
 			echo "Arquivos copiados com sucesso"
+			echo
 		else
 			echo "Erro na cópia do arquivos de legenda"
 			echo "Interrompendo script"
