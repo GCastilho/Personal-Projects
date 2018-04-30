@@ -8,4 +8,11 @@ Detectar a existência de uma chave com o nome de usuário especificado
 Perguntar sobre o endereço tor
 	Se existir um endereço tor salvo perguntar se usa ele, se não, salvar o endereço que o usuário entrar
 	fazer futuramente um sistema que detecta/cria um endereço tor
-Criar o json de hadshake
+Criar o json de hadshake; handshake necessita de:
+	username
+	password
+	timestamp
+	public key
+	assinatura (detached) dos itens anteriores pela chave oferecida na public key
+O handshake deverá ser enviado para o servidor sem ser criptografado, por isso a assinatura é importante
+Servidor precisa ler, autenticar e devolver um handshake

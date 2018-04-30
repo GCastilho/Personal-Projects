@@ -19,6 +19,8 @@ msg_file=./msg_file
 #É necessário assinar os dados da mensagem ($username $password_hash $timestamp $tor_ip $public_key) por exemplo (provavelmente precisará de senha)
 #jq '.keys[.keys|length] += {"name": "teste"}' config.json	#Adiciona item na próxima posição do array
 #
+#gpg --list-keys | grep uid | awk '{print $2;}'
+#
 #Assinar a mensagem:
 
 message="GCastilholalalathththfdfdbbwwb"
