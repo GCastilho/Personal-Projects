@@ -97,7 +97,7 @@ gethandshake(){
 	
 	unset password
 	while [ ! $password ]; do
-		echo -n "Enter passrowd: "
+		echo -n "Enter password: "
 		read -s password
 		if [ ! $password ]; then echo "Password não pode ser vazio"; fi
 	done
