@@ -1,17 +1,17 @@
 #!/bin/bash
 
-default_folder=.
+root_dir=.
 buffer_folder=buffer
-server_tc_PID=$default_folder/server_tc_PID.pid
+server_tc_PID=$root_dir/server_tc_PID.pid
 port=1234
 
 shutdown(){
 	kill -TERM $netcat_PID 2>/dev/null
 	if (kill -0 $netcat_PID 2>/dev/null); then kill -9 $netcat_PID 2>/dev/null; fi 	#Caso o SIGTERM não feche o processo, ele dá SIGKILL
-	rm -r $default_folder/$buffer_folder 2>/dev/null
+	rm -r $buffer_folder 2>/dev/null
 	exit 0
 }
-trap shutdown SIGINT SIGTERM
+trap shutdown EXIT SIGINT SIGTERM
 
 echo "Started netcat module"
 if [[ -d "$buffer_folder" ]]; then
