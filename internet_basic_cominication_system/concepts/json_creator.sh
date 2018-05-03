@@ -24,4 +24,4 @@ json=$(jq -n '{ "username": "'$username'", "password_hash": "'$password_hash'", 
 
 echo
 jq . <<<$json
-jq . <<<$json > json_created.json
+jq . --tab --ascii-output <<<$json > json_created.json

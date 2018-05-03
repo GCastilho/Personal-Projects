@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "Starting 'tor_comunicator' Server"
+echo "Starting IBCS Server"
 
 shutdown(){
 	kill -TERM $netcat_module_PID 2>/dev/null
@@ -42,13 +42,13 @@ start_netcat_module(){
 buffer_monitor(){
 	unset buffer_set
 	if (! kill -0 $netcat_module_PID 2>/dev/null); then start_netcat_module; fi 	#Checa se o módulo do netcat está rodando e inicia-o se não estiver
-	buffer_files_number=$(ls -A $buffer_folder/netcat_buffer_* 2>/dev/null | wc -l)	#organiza os arquivos alfabeticamnte
+	buffer_files_number=$(ls -A $buffer_folder/netcat_buffer_* 2>/dev/null | wc -l)
 	if [ $buffer_files_number -lt 1 ]; then
 		echo "Sleeping"
 		sleep 10
 		buffer_monitor
 	else
-		buffer_files=$(ls -A $buffer_folder/netcat_buffer_* 2>/dev/null | sort)
+		buffer_files=$(ls -A $buffer_folder/netcat_buffer_* 2>/dev/null | sort)		#A lista é armazenada em ordem alfabética
 		for(( count=0; count <= buffer_files_number; count++ )){
 			if [ ! $buffer_set ]; then buffer=$(cat $buffer_folder/netcat_buffer_$count 2>/dev/null); buffer_set=1; fi
 			if [ $buffer_files_number -eq 1 ]; then
@@ -61,12 +61,30 @@ buffer_monitor(){
 			fi
 		}
 	fi
-	loop
+	data_analizer
 }
 
-loop(){
-	echo "$buffer"
+data_analizer(){
+	case $(jq .msg_type --raw-output <<<"$buffer") in
+		ping)
+			ping_response ;;
+		*)
+			echo "Não reconhecido" ;;
+	esac
 	buffer_monitor
+}
+
+send_data(){
+	local to_send_data=$1
+	local to_send_address=$2
+	netcat $to_send_address <<<"$to_send_data"
+}
+
+ping_response(){
+	response_addr=$(jq .response_addr --raw-output <<<"$buffer")
+	if [[ ! "$response_addr" ]]; then return; fi
+	if [[ $(($(jq .timestamp --raw-output <<<"$buffer")+60)) < $(date +%s) ]]; then return; fi
+	send_data "$(jq -n '{ "msg_type": "ping_response", "timestamp": "'$(date +%s)'"}')" "$response_addr"
 }
 
 main(){

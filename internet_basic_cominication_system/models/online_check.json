@@ -1,0 +1,29 @@
+online_check
+{
+	"msg_type": "online_check",
+	"username": "$username",
+	"timestamp": "$timestamp",
+	"msg_sig": "$msg_sig"
+}
+
+server_response
+{
+	"msg_type": "online_check_response",
+	"timestamp": "$timestamp",
+	"msg_sig": "$msg_sig"
+}
+
+server_online_check
+{
+	"msg_type": "online_check",
+	"timestamp": "$timestamp",
+	"msg_sig": "$msg_sig"
+}
+
+client_response
+{
+	"msg_type": "online_check_response",
+	"username": "$username",
+	"timestamp": "$timestamp",
+	"msg_sig": "$msg_sig"
+}

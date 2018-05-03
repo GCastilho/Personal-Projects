@@ -6,7 +6,7 @@ config_json=$(jq . $path/config.json)
 echo -e "Protótipo do tor_comunicator\nIn development"
 
 updateconfigfile(){
-	jq . <<<"$config_json" > $path/config.json
+	jq . --tab <<<"$config_json" > $path/config.json
 }
 
 selectusername(){
@@ -19,6 +19,8 @@ selectusername(){
 }
 
 checkconfigjson(){
+	local gpg_conflict_option
+	local gpg_key_list
 	#Cria o arquivo config.json como um JSON se ele não existir
 	if [ ! -s $path/config.json ]; then echo -n "{}" > $path/config.json; fi
 	#Converte o arquivo para um JSON caso ele não seja um
@@ -31,9 +33,8 @@ checkconfigjson(){
 			updateconfigfile
 		fi
 	done
-	unset gpg_key_list
 	#Checa se uma chave para este usuário existe, se não existir chama função de criar a chave
-	if ( ! jq -e '.gpg_keys[] | select(.keyname=="tc_'$username'")' config.json >/dev/null 2>&1 ); then
+	if ( ! jq -e '.gpg_keys[] | select(.keyname=="tc_'$username'")' <<<"$config_json" >/dev/null 2>&1 ); then
 		#não existe chave no config.json MAS existe chave com esse nome no chaveiro
 		if (gpg --list-keys tc_$username >/dev/null 2>&1); then
 			gpg_keys_num=$(gpg --list-keys tc_$username | grep uid | awk '{print $2;}' | wc -l)	#Conta QUANTAS chaves tc_username existem
@@ -105,20 +106,23 @@ gethandshake(){
 	password_hash=$(echo -n $(echo -n "$password" | sha256sum | awk '{print $1;}')$(echo -n "$timestamp" | sha256sum | awk '{print $1;}') | sha256sum | awk '{print $1;}')
 	unset password
 
-	#O comando  de sign tem q ser configurado pra usuário e senha corretos
-	handshake_sig=$(echo -n "$username$password_hash$timestamp$my_tor_ip$public_key" | gpg --no-tty --detach-sign --armor --local-user tc_$username --passphrase $(jq --raw-output '.gpg_keys[] | select(.keyname=="tc_'$username'") | .password' <<<"$config_json") | xxd -p)	#O handshake_sign será armazenado em HEX
-
-	handshake_json=$(jq -n '{ "msg_type": "handshake", "username": "'$username'", "password_hash": "'$password_hash'", "timestamp": "'$timestamp'", "my_tor_ip": "'$my_tor_ip'", "public_key": "'"$public_key"'", "handshake_sig": "'"$handshake_sig"'" }')
+	sign_message "$username$password_hash$timestamp$my_tor_ip$public_key"
+	handshake_json=$(jq -n '{ "msg_type": "handshake", "username": "'$username'", "password_hash": "'$password_hash'", "timestamp": "'$timestamp'", "my_tor_ip": "'$my_tor_ip'", "public_key": "'"$public_key"'", "msg_sig": "'"$msg_sig"'" }')
 	unset timestamp
 }
 
-senddatatoserver(){
-	to_send_pkg=$1
-	netcat localhost 1234 <<<"$to_send_pkg"
-	unset to_send_pkg
+#O comando  de sign tem q ser configurado pra usuário e senha corretos
+sign_message(){
+	msg_sig=$(echo -n "$1" | gpg --no-tty --detach-sign --armor --local-user tc_$username --passphrase $(jq --raw-output '.gpg_keys[] | select(.keyname=="tc_'$username'") | .password' <<<"$config_json") | xxd -p)	#O msg_sign será armazenado em HEX
 }
 
-receivedatafromserver(){
+send_data(){
+	local to_send_data=$1
+	local to_send_address=$2
+	netcat $to_send_address <<<"$to_send_data"
+}
+
+receive_data(){
 	received_data=$(netcat -l $my_tor_port)
 }
 
@@ -132,8 +136,8 @@ main(){
 	selectusername
 	tor_temp
 	gethandshake
-	senddatatoserver "$handshake_json"
-	receivedatafromserver
+	send_data "$handshake_json"
+	receive_data
 }
 
 main

@@ -1,0 +1,18 @@
+client
+{
+	"msg_type": "handshake",
+	"username": "$username",
+	"timestamp": "$timestamp",
+	"password_hash": "$password_hash",
+	"response_addr": "$response_addr",
+	"public_key": "$public_key",
+	"msg_sig": "$msg_sig"
+}
+
+server
+{
+	"msg_type": "handshake",
+	"timestamp": "$timestamp",
+	"public_key": "$public_key",
+	"msg_sig": "$msg_sig"
+}

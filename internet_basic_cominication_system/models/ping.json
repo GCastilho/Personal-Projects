@@ -1,0 +1,12 @@
+ping_query
+{
+	"msg_type": "ping",
+	"response_addr": "$response_addr",
+	"timestamp": "$timestamp"
+}
+
+response
+{
+	"msg_type": "ping_response",
+	"timestamp": "$timestamp"
+}

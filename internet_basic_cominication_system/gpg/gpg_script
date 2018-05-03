@@ -1,0 +1,11 @@
+%echo Generating a 2018 bits RSA key
+Key-Type: RSA
+Key-Length: 2048
+Subkey-Type: RSA
+Subkey-Length: 2048
+Name-Real: TESTE
+Expire-Date: 0
+#%pubring gpg_script.pub
+#%secring gpg_script.sec
+%commit
+%echo done

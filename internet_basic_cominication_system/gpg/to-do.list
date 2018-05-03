@@ -1,0 +1,18 @@
+To do List
+
+Detectar a existência de uma chave com o nome de usuário especificado
+	Se não existir, criar a chave
+	O melhor é a senha de usuário e a chave de criptografia sejam diferentes
+	A senha da chave de criptografia e o usuário serão salvos no arquivo config.json
+	Não é um problema armazenar a chave em plain-text pois a informação de criptografia é válida apenas para aquela sessão (não é obrigatório não usar outra)
+Perguntar sobre o endereço tor
+	Se existir um endereço tor salvo perguntar se usa ele, se não, salvar o endereço que o usuário entrar
+	fazer futuramente um sistema que detecta/cria um endereço tor
+Criar o json de hadshake; handshake necessita de:
+	username
+	password
+	timestamp
+	public key
+	assinatura (detached) dos itens anteriores pela chave oferecida na public key
+O handshake deverá ser enviado para o servidor sem ser criptografado, por isso a assinatura é importante
+Servidor precisa ler, autenticar e devolver um handshake
