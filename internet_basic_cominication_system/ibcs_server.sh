@@ -14,7 +14,7 @@ trap shutdown EXIT SIGINT SIGTERM
 var_set(){
 	PID=$$
 	root_dir=.
-	PID_file=$root_dir/server_tc_PID.pid
+	PID_file=$root_dir/ibcs_server_PID.pid
 	echo -n $PID > "$PID_file"
 	netcat_module_PID_file=$root_dir/netcat_module_PID.pid
 	buffer_folder=buffer
@@ -81,9 +81,12 @@ send_data(){
 }
 
 ping_response(){
+	local msg_timestamp
 	response_addr=$(jq .response_addr --raw-output <<<"$buffer")
 	if [[ ! "$response_addr" ]]; then return; fi
-	if [[ $(($(jq .timestamp --raw-output <<<"$buffer")+60)) < $(date +%s) ]]; then return; fi
+	msg_timestamp=$(jq .timestamp --raw-output <<<"$buffer")
+	if [[ ! $(($msg_timestamp+60)) -ge $(date +%s) ]] && [[ ! $(date +%s) -le $(($msg_timestamp+5)) ]]; then return; fi
+	echo "Respondendo solicitação de ping para '$response_addr'"
 	send_data "$(jq -n '{ "msg_type": "ping_response", "timestamp": "'$(date +%s)'"}')" "$response_addr"
 }
 

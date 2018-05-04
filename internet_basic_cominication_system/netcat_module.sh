@@ -2,7 +2,7 @@
 
 root_dir=.
 buffer_folder=buffer
-server_tc_PID=$root_dir/server_tc_PID.pid
+ibcs_server_PID=$root_dir/ibcs_server_PID.pid
 port=1234
 
 shutdown(){
@@ -36,7 +36,7 @@ while true; do
 	echo "NC PID: $netcat_PID"
 	wait $netcat_PID
 	netcat_return=$?
-	if (! kill -0 $(cat "$server_tc_PID" 2>/dev/null) 2>/dev/null); then shutdown; fi
+	if (! kill -0 $(cat "$ibcs_server_PID" 2>/dev/null) 2>/dev/null); then shutdown; fi
 	echo "Conexão encerrada"
 	if [[ $netcat_return != 0 ]]; then
 		echo -e "netcat exited with status $netcat_return \nStopping"

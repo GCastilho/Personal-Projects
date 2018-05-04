@@ -1,16 +1,3 @@
 {
-	"gpg_keys": [
-		{
-			"keyname": "tc_GCastilho",
-			"password": "9b9b2b5f4e114fbad9a38bfe04831a5e45de117a7bb97e1e508bfc0f84510bce"
-		},
-		{
-			"keyname": "tc_ertert",
-			"password": "5fc0ef67cba9459dc167f70dbed0b97772f61d25ade73e622f19334669e8c174"
-		},
-		{
-			"keyname": "ibcs_GCastilho",
-			"password": "a9116a08ed85dcb8119632bc6e433a58ec73735eb19bdcc87ca0f27d8d70723c"
-		}
-	]
+	"gpg_keys": []
 }
