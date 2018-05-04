@@ -9,6 +9,50 @@ var_set(){
 	config_json=$(jq . $root_dir/config.json)
 }
 
+#------------------Funções processadoras de dados------------------
+is_handshake(){
+	local msg_type
+	local msg_timestamp
+	msg_type="$(jq --raw-output .msg_type <<<"$buffer")"
+	if [[ $msg_type != handshake ]]; then
+		echo "Erro de comunicação, o sistema não recebeu um retorno válido do servidor"
+		main_menu
+	fi
+	if (! is_valid_timestamp ); then
+		echo "O timestamp da mensagem é um valor inválido"
+		main_menu
+	fi
+	#Checar a assinatura da mensagem
+	jq . <<<"$buffer"
+}
+
+send_data(){
+	local to_send_data=$1
+	netcat $server_ip $server_port <<<"$to_send_data"
+}
+
+receive_data(){
+	echo "Aguardado recebimento de dados pela porta $local_port"
+	echo "timeout é de 60 segundos"
+	netcat -l $local_port > $root_dir/buffer_client &
+	netcat_PID=$!
+	echo "netcat PID: $netcat_PID"
+	#Sub função de timeout
+	( sleep 60; if ( kill -0 $netcat_PID 2>/dev/null ); then echo "timeout"; kill -TERM $netcat_PID >/dev/null 2>&1; rm $root_dir/buffer_client 2>/dev/null; fi ) &
+	wait $netcat_PID
+	if [[ $? -ne 0 ]]; then return 1; fi
+	buffer=$(cat $root_dir/buffer_client)
+	rm $root_dir/buffer_client
+	return 0
+}
+
+is_valid_timestamp(){
+	local msg_timestamp
+	msg_timestamp=$(jq .timestamp --raw-output <<<"$buffer")
+	if [[ $(($msg_timestamp+60)) -ge $(date +%s) ]] && [[ $(date +%s) -le $(($msg_timestamp+5)) ]]; then return 0; else return 1; fi
+}
+#------------------Fim das funções processadoras de dados------------------
+
 check_config_file(){
 	local gpg_conflict_option
 	local gpg_key_list
@@ -111,24 +155,6 @@ sign_message(){
 	msg_sig=$(echo -n "$1" | gpg --no-tty --detach-sign --armor --local-user ibcs_$username --passphrase $(jq --raw-output '.gpg_keys[] | select(.keyname=="ibcs_'$username'") | .password' <<<"$config_json") | xxd -p)	#O msg_sign será armazenado em HEX
 }
 
-is_handshake(){
-	local msg_type
-	local msg_timestamp
-	msg_type="$(jq --raw-output .msg_type <<<"$buffer")"
-	if [[ $msg_type != handshake ]]; then
-		echo "Erro de comunicação, o sistema não recebeu um retorno válido do servidor"
-		main_menu
-	fi
-	#checa se o timestamp é recente
-	msg_timestamp="$(jq --raw-output .timestamp <<<"$buffer")"
-	if [[ ! $(($msg_timestamp+60)) -ge $(date +%s) ]] && [[ ! $(date +%s) -le $(($msg_timestamp+5)) ]]; then
-		echo "O timestamp da mensagem é um valor inválido"
-		main_menu
-	fi
-	#Checa a assinatura da mensagem
-	jq . <<<"$buffer"
-}
-
 ping_server(){
 	local msg_timestamp
 	local ping_data="$(jq -n --raw-output '{ "msg_type": "ping", "response_addr": "'$local_ip' '$local_port'", "timestamp": "'$(date +%s)'" }')"
@@ -137,8 +163,7 @@ ping_server(){
 	receive_data
 	if [[ $? -ne 0 ]]; then echo "Erro de conexão"; main_menu; else
 		if [[ $(jq --raw-output .msg_type <<<"$buffer") == ping_response ]]; then
-			msg_timestamp="$(jq --raw-output .timestamp <<<"$buffer")"
-			if [[ $(($msg_timestamp+60)) -ge $(date +%s) ]] && [[ $(date +%s) -le $(($msg_timestamp+5)) ]]; then
+			if (is_valid_timestamp); then
 				echo "Conexão com o servidor bem-sucedida"
 				return 0
 			else
@@ -205,6 +230,7 @@ connect_server(){
 }
 
 selectusername(){
+	unset username
 	while [ ! $username ]; do
 		echo -n -e "\nEnter username: "
 		read username
@@ -215,26 +241,6 @@ selectusername(){
 temp_local_ipconfig(){
 	local_ip="localhost"
 	local_port=1235
-}
-
-send_data(){
-	local to_send_data=$1
-	netcat $server_ip $server_port <<<"$to_send_data"
-}
-
-receive_data(){
-	echo "Aguardado recebimento de dados pela porta $local_port"
-	echo "timeout é de 60 segundos"
-	netcat -l $local_port > $root_dir/buffer_client &
-	netcat_PID=$!
-	echo "netcat PID: $netcat_PID"
-	#Sub função de timeout
-	( sleep 60; if ( kill -0 $netcat_PID 2>/dev/null ); then echo "timeout"; kill -TERM $netcat_PID >/dev/null 2>&1; rm $root_dir/buffer_client 2>/dev/null; fi ) &
-	wait $netcat_PID
-	if [[ $? -ne 0 ]]; then return 1; fi
-	buffer=$(cat $root_dir/buffer_client)
-	rm $root_dir/buffer_client
-	return 0
 }
 
 main(){
