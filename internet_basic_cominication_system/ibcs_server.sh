@@ -1,15 +1,14 @@
 #!/bin/bash
 
-echo "Starting IBCS Server"
-
 shutdown(){
+	netcat_PID=$(cat $netcat_PID_file 2>/dev/null)
 	kill -TERM $netcat_module_PID 2>/dev/null
-	if (kill -0 $netcat_PID 2>/dev/null); then kill -9 $netcat_PID 2>/dev/null; fi 	#Caso o SIGTERM não feche o processo, ele dá SIGKILL
-	rm "$PID_file" "$netcat_module_PID_file" 2>/dev/null
-	exit 0	#O exit não está funcionando
+	kill -TERM $netcat_PID 2>/dev/null
+	if ( kill -0 $netcat_PID 2>/dev/null ); then kill -9 $netcat_PID 2>/dev/null; fi 	#Caso o SIGTERM não feche o processo, ele dá SIGKILL
+	rm -r "$PID_file" "$netcat_module_PID_file" "$netcat_PID_file" "$buffer_folder" 2>/dev/null
+	exit 0	#O exit não está funcionando. Na verdade ele provavelmente está, mas todos os módulos executam a função shutdown qdo fecham, então o exit fecha O MÓDULO
 }
 trap shutdown EXIT SIGINT SIGTERM
-
 
 var_set(){
 	PID=$$
@@ -17,86 +16,147 @@ var_set(){
 	PID_file=$root_dir/ibcs_server_PID.pid
 	echo -n $PID > "$PID_file"
 	netcat_module_PID_file=$root_dir/netcat_module_PID.pid
+	netcat_PID_file=$root_dir/netcat_PID.pid
 	buffer_folder=buffer
+	local_port=1234
 }
 
+logit(){
+	local thread_name=$1
+	local echo_arg=$2
+	local color_arg
+	if [[ $thread_name == main ]]; then echo -e "\e[0m$(date  "+%F %T") ${echo_arg}\e[0m"; return				#Normal (No color)
+	elif [[ $thread_name == start_netcat_module ]]; then thread_name=Start_Netcat_Module; color_arg='\e[34m'	#Blue
+	elif [[ $thread_name == netcat_module ]]; then thread_name=Netcat_Module;color_arg='\e[33m'					#Yellow
+	elif [[ $thread_name == buffer_analyzer ]]; then thread_name=Buffer_Analyzer;color_arg='\e[95m';fi			#Light magenta
+	echo -e "$color_arg$(date  "+%F %T") $thread_name - ${echo_arg}\e[0m"
+}
+
+#-------------netcat-------------
 start_netcat_module(){
-	if [[ -f "$netcat_module_PID_file" ]]; then
-		netcat_module_PID=$(cat "$netcat_module_PID_file")
-		if (kill -0 $netcat_module_PID 2>/dev/null); then
-			echo "Error: Can't start netcat_module cause netcat_module is already running"
+	local logit="logit start_netcat_module"
+	if [[ "$netcat_module_PID" ]]; then
+		if ( kill -0 $netcat_module_PID 2>/dev/null ); then
+			$logit "Error: Can't start netcat_module cause netcat_module is already running"
 			return 1
 		fi
 	fi
-	if [[ ! -f $root_dir/netcat_module.sh ]]; then
-		echo -e "Não foi encontrado módulo do netcat\nInterrompendo script"
-		exit 1
-	fi
-	echo "Starting netcat_module"
-	$root_dir/netcat_module.sh &
+	$logit "Starting netcat_module"
+	netcat_module &
 	netcat_module_PID=$!
-	echo "Detected netcat module PID: '$netcat_module_PID'"
-	echo -n $netcat_module_PID > "$netcat_module_PID_file"
+	$logit "Detected netcat module PID: '$netcat_module_PID'"
+	$logit -n $netcat_module_PID > "$netcat_module_PID_file"
 }
 
-buffer_monitor(){
-	unset buffer_set
-	if (! kill -0 $netcat_module_PID 2>/dev/null); then start_netcat_module; fi 	#Checa se o módulo do netcat está rodando e inicia-o se não estiver
-	buffer_files_number=$(ls -A $buffer_folder/netcat_buffer_* 2>/dev/null | wc -l)
-	if [ $buffer_files_number -lt 1 ]; then
-		echo "Sleeping"
-		sleep 10
-		buffer_monitor
-	else
-		buffer_files=$(ls -A $buffer_folder/netcat_buffer_* 2>/dev/null | sort)		#A lista é armazenada em ordem alfabética
-		for(( count=0; count <= buffer_files_number; count++ )){
-			if [ ! $buffer_set ]; then buffer=$(cat $buffer_folder/netcat_buffer_$count 2>/dev/null); buffer_set=1; fi
-			if [ $buffer_files_number -eq 1 ]; then
-				rm $buffer_folder/netcat_buffer_$count 2>/dev/null
+netcat_module(){
+	local logit="logit netcat_module"
+	$logit "Started netcat module"
+	if [[ -d "$buffer_folder" ]]; then
+		if [[ -w "$buffer_folder" ]]; then
+			if [[ $(ls -A $buffer_folder/ | wc -l) > 0 ]]; then
+				$logit "Limpando arquivos da última sessão"
+				rm -r "$buffer_folder/*" 2>/dev/null
+			fi
+		else
+			$logit "Erro: O script não tem permissão de gravação na pasta '$buffer_folder'\nInterrompendo o script!"
+			exit 1
+		fi
+	fi
+	while true; do
+		if [[ ! -d $buffer_folder ]]; then
+			if ( ! mkdir $buffer_folder ); then
+				$logit "Erro ao criar pasta '$buffer_folder'\nInterrompendo o script!"
+				exit 1
+			fi
+		fi
+		$logit "Iniciando netcat na porta $local_port"
+		netcat -l $local_port > $buffer_folder/buffer &
+		netcat_PID=$!
+		$logit "Detected netcat PID: '$netcat_PID'"
+		echo -n "$netcat_PID" > "$netcat_PID_file"
+		wait $netcat_PID
+		netcat_return=$?
+		if ( ! kill -0 "$PID" 2>/dev/null ); then exit; fi
+		$logit "netcat: Conexão encerrada"
+		if [[ $netcat_return != 0 ]]; then
+			$logit "netcat exited with status $netcat_return \nStopping module"
+			exit 1
+		fi
+		files=$(ls -A $buffer_folder/netcat_buffer_* 2>/dev/null | sort)	#organiza os arquivos alfabeticamnte
+		file_number=$(ls -A $buffer_folder/netcat_buffer_* 2>/dev/null | wc -l)
+		for(( count=0; count <= file_number; count++ )) {
+			if [[ ! -f $buffer_folder/netcat_buffer_$count ]]; then
+				$logit "Salvando buffer em '$buffer_folder/netcat_buffer_$count'"
+				mv $buffer_folder/buffer $buffer_folder/netcat_buffer_$count
+				$logit "Calling data analyzer function"
+				buffer_analyzer $count &
+				buffer_analyzer_PID_[$count]=$!
+				$logit "Data Analyzer (thread_$count) PID: ${buffer_analyzer_PID_[$count]}"
 				break
-			else
-				while [ -f  $buffer_folder/netcat_buffer_$((count+1)) ]; do
-					mv $buffer_folder/netcat_buffer_$((count+1)) $buffer_folder/netcat_buffer_$count 2>/dev/null
-				done
 			fi
 		}
-	fi
-	data_analizer
+	done
 }
+#-------------end netcat-------------
 
-data_analizer(){
-	case $(jq .msg_type --raw-output <<<"$buffer") in
+#-------------Send and receive-------------
+buffer_analyzer(){
+	local logit="logit buffer_analyzer"
+	local count=$1
+	buffer=$(cat $buffer_folder/netcat_buffer_$count 2>/dev/null)
+	case $(jq .msg_type --raw-output <<<"$buffer" 2>/dev/null) in
 		ping)
-			ping_response ;;
+			ping_reply ;;
+		ping_reply)
+			#colocar numero do ping ou algum tipo de identificação nene, pra suportar várias solicitações
+			mv $buffer_folder/netcat_buffer_$count $buffer_folder/ping_received ;;
+		handshake_response)
+			mv $buffer_folder/netcat_buffer_$count $buffer_folder/handshake_received ;;
 		*)
-			echo "Não reconhecido" ;;
+			$logit "buffer não reconhecido: '$buffer'" ;;
 	esac
-	buffer_monitor
+	if [[ -f $buffer_folder/netcat_buffer_$count ]]; then rm $buffer_folder/netcat_buffer_$count 2>/dev/null; fi
 }
 
 send_data(){
-	local to_send_data=$1
-	local to_send_address=$2
+	local to_send_address=$1
+	local to_send_data=$2
 	netcat $to_send_address <<<"$to_send_data"
 }
+#-------------Fim send and receive-------------
 
-ping_response(){
-	local msg_timestamp
+#-------------Data validators-------------
+ping_reply(){
 	response_addr=$(jq .response_addr --raw-output <<<"$buffer")
 	if [[ ! "$response_addr" ]]; then return; fi
+	if ( ! is_valid_timestamp ); then return; fi
+	$logit "Respondendo solicitação de ping para '$response_addr'"
+	send_data "$response_addr" "$(jq -n '{ "msg_type": "ping_reply", "timestamp": "'$(date +%s)'"}')"
+}
+
+is_valid_timestamp(){
+	local msg_timestamp
 	msg_timestamp=$(jq .timestamp --raw-output <<<"$buffer")
-	if [[ ! $(($msg_timestamp+60)) -ge $(date +%s) ]] && [[ ! $(date +%s) -le $(($msg_timestamp+5)) ]]; then return; fi
-	echo "Respondendo solicitação de ping para '$response_addr'"
-	send_data "$(jq -n '{ "msg_type": "ping_response", "timestamp": "'$(date +%s)'"}')" "$response_addr"
+	if [[ $(($msg_timestamp+60)) -ge $(date +%s) ]] && [[ $(date +%s) -le $(($msg_timestamp+5)) ]]; then return 0; else return 1; fi
+}
+#-------------Data validators-------------
+
+thread_monitor(){
+	if ( ! kill -0 "$PID" 2>/dev/null ); then shutdown; fi
+	if ( ! kill -0 $netcat_module_PID 2>/dev/null ); then start_netcat_module; fi
+	sleep 60
+	thread_monitor
 }
 
 main(){
+	local logit="logit main"
+	$logit "Starting IBCS Server"
 	var_set
 	start_netcat_module
-	buffer_monitor
+	thread_monitor &
+	while [[ true ]]; do
+		sleep 120
+	done
 }
 
-
-
 main
-shutdown

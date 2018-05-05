@@ -1,3 +1,8 @@
 {
-	"gpg_keys": []
+	"gpg_keys": [
+		{
+			"keyname": "ibcs_GCastilho",
+			"password": "90b46844cd29c6310e0d5b80129eca8a93164d6160ecbcaecbfe9aca1e9b958f"
+		}
+	]
 }
