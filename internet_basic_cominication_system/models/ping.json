@@ -7,6 +7,6 @@ ping_query
 
 response
 {
-	"msg_type": "ping_response",
+	"msg_type": "ping_reply",
 	"timestamp": "$timestamp"
 }

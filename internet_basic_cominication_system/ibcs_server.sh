@@ -18,19 +18,18 @@ var_set(){
 	netcat_module_PID_file=$root_dir/netcat_module_PID.pid
 	netcat_PID_file=$root_dir/netcat_PID.pid
 	buffer_folder=buffer
-	port=1234
+	local_port=1234
 }
 
-#colocar data do comando
 logit(){
 	local thread_name=$1
 	local echo_arg=$2
 	local color_arg
-	if [[ $thread_name == main ]]; then thread_name=Main;color_arg='\e[0m'										#Normal (No color)
+	if [[ $thread_name == main ]]; then echo -e "\e[0m$(date  "+%F %T") ${echo_arg}\e[0m"; return				#Normal (No color)
 	elif [[ $thread_name == start_netcat_module ]]; then thread_name=Start_Netcat_Module; color_arg='\e[34m'	#Blue
 	elif [[ $thread_name == netcat_module ]]; then thread_name=Netcat_Module;color_arg='\e[33m'					#Yellow
-	elif [[ $thread_name == data_analyzer ]]; then thread_name=Data_Analyzer;color_arg='\e[95m';fi				#Light magenta
-	echo -e "$color_arg$thread_name - ${echo_arg}\e[0m"
+	elif [[ $thread_name == buffer_analyzer ]]; then thread_name=Buffer_Analyzer;color_arg='\e[95m';fi			#Light magenta
+	echo -e "$color_arg$(date  "+%F %T") $thread_name - ${echo_arg}\e[0m"
 }
 
 #-------------netcat-------------
@@ -70,11 +69,11 @@ netcat_module(){
 				exit 1
 			fi
 		fi
-		$logit "Iniciando netcat na porta $port"
-		netcat -l 1234 > $buffer_folder/buffer &
+		$logit "Iniciando netcat na porta $local_port"
+		netcat -l $local_port > $buffer_folder/buffer &
 		netcat_PID=$!
 		$logit "Detected netcat PID: '$netcat_PID'"
-		echo "$netcat_PID" > "$netcat_PID_file"
+		echo -n "$netcat_PID" > "$netcat_PID_file"
 		wait $netcat_PID
 		netcat_return=$?
 		if ( ! kill -0 "$PID" 2>/dev/null ); then exit; fi
@@ -90,9 +89,9 @@ netcat_module(){
 				$logit "Salvando buffer em '$buffer_folder/netcat_buffer_$count'"
 				mv $buffer_folder/buffer $buffer_folder/netcat_buffer_$count
 				$logit "Calling data analyzer function"
-				data_analyzer $count &
-				data_analyzer_PID_[$count]=$!
-				$logit "Data Analyzer (thread_$count) PID: ${data_analyzer_PID_[$count]}"
+				buffer_analyzer $count &
+				buffer_analyzer_PID_[$count]=$!
+				$logit "Data Analyzer (thread_$count) PID: ${buffer_analyzer_PID_[$count]}"
 				break
 			fi
 		}
@@ -100,32 +99,39 @@ netcat_module(){
 }
 #-------------end netcat-------------
 
-#-------------Funções processadoras de dados-------------
-data_analyzer(){
-	local logit="logit data_analyzer"
+#-------------Send and receive-------------
+buffer_analyzer(){
+	local logit="logit buffer_analyzer"
 	local count=$1
 	buffer=$(cat $buffer_folder/netcat_buffer_$count 2>/dev/null)
-	rm $buffer_folder/netcat_buffer_$count 2>/dev/null
 	case $(jq .msg_type --raw-output <<<"$buffer" 2>/dev/null) in
 		ping)
-			ping_response ;;
+			ping_reply ;;
+		ping_reply)
+			#colocar numero do ping ou algum tipo de identificação nene, pra suportar várias solicitações
+			mv $buffer_folder/netcat_buffer_$count $buffer_folder/ping_received ;;
+		handshake_response)
+			mv $buffer_folder/netcat_buffer_$count $buffer_folder/handshake_received ;;
 		*)
 			$logit "buffer não reconhecido: '$buffer'" ;;
 	esac
+	if [[ -f $buffer_folder/netcat_buffer_$count ]]; then rm $buffer_folder/netcat_buffer_$count 2>/dev/null; fi
 }
 
 send_data(){
-	local to_send_data=$1
-	local to_send_address=$2
+	local to_send_address=$1
+	local to_send_data=$2
 	netcat $to_send_address <<<"$to_send_data"
 }
+#-------------Fim send and receive-------------
 
-ping_response(){
+#-------------Data validators-------------
+ping_reply(){
 	response_addr=$(jq .response_addr --raw-output <<<"$buffer")
 	if [[ ! "$response_addr" ]]; then return; fi
 	if ( ! is_valid_timestamp ); then return; fi
 	$logit "Respondendo solicitação de ping para '$response_addr'"
-	send_data "$(jq -n '{ "msg_type": "ping_response", "timestamp": "'$(date +%s)'"}')" "$response_addr"
+	send_data "$response_addr" "$(jq -n '{ "msg_type": "ping_reply", "timestamp": "'$(date +%s)'"}')"
 }
 
 is_valid_timestamp(){
@@ -133,7 +139,7 @@ is_valid_timestamp(){
 	msg_timestamp=$(jq .timestamp --raw-output <<<"$buffer")
 	if [[ $(($msg_timestamp+60)) -ge $(date +%s) ]] && [[ $(date +%s) -le $(($msg_timestamp+5)) ]]; then return 0; else return 1; fi
 }
-#-------------Fim das funções processadoras de dados-------------
+#-------------Data validators-------------
 
 thread_monitor(){
 	if ( ! kill -0 "$PID" 2>/dev/null ); then shutdown; fi
