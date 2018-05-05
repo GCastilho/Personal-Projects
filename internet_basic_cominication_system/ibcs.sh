@@ -13,11 +13,11 @@ trap shutdown EXIT SIGINT SIGTERM
 var_set(){
 	PID=$$
 	root_dir=.
-	PID_file=$root_dir/ibcs_client_PID.pid
+	PID_file="$root_dir"/ibcs_client_PID.pid
 	echo -n $PID > "$PID_file"
-	netcat_module_PID_file=$root_dir/client_netcat_module_PID.pid
-	netcat_PID_file=$root_dir/client_netcat_PID.pid
-	config_json=$(jq . $root_dir/config.json)
+	netcat_module_PID_file="$root_dir"/client_netcat_module_PID.pid
+	netcat_PID_file="$root_dir"/client_netcat_PID.pid
+	config_json=$(jq . "$root_dir"/config.json)
 	buffer_folder=client_buffer
 	local_ip="localhost"
 	local_port=1235
@@ -25,7 +25,7 @@ var_set(){
 }
 
 updateconfigfile(){
-	jq . --tab <<<"$config_json" > $root_dir/config.json
+	jq . --tab <<<"$config_json" > "$root_dir"/config.json
 }
 
 logit(){
@@ -125,11 +125,12 @@ buffer_analyzer(){
 		handshake_response)
 			mv $buffer_folder/netcat_buffer_$count $buffer_folder/handshake_received ;;
 		*)
-			$logit "buffer não reconhecido: '$buffer'" ;;
+			$logit "buffer não reconhecido:\n'$buffer'" ;;
 	esac
 	if [[ -f $buffer_folder/netcat_buffer_$count ]]; then rm $buffer_folder/netcat_buffer_$count 2>/dev/null; fi
 }
 
+#Fazer um check se existe endereço e porta na variável
 send_data(){
 	local to_send_address=$1
 	local to_send_data=$2
@@ -140,32 +141,16 @@ send_data(){
 #-------------Data validators-------------
 ping_reply(){
 	response_addr=$(jq .response_addr --raw-output <<<"$buffer")
-	if [[ ! "$response_addr" ]]; then return; fi
-	if ( ! is_valid_timestamp ); then return; fi
+	if [[ ! "$response_addr" ]]; then return 1; fi
+	if ( ! is_valid_timestamp ); then return 1; fi
 	$logit "Respondendo solicitação de ping para '$response_addr'"
-	send_data "$response_addr" "$(jq -n '{ "msg_type": "ping_reply", "timestamp": "'$(date +%s)'"}')"
+	send_data "$response_addr" "$(jq '.ping_reply | .timestamp="'$(date +%s)'"' "$root_dir"/models/ping.json)"
 }
 
 is_valid_timestamp(){
 	local msg_timestamp
 	msg_timestamp=$(jq .timestamp --raw-output <<<"$buffer")
 	if [[ $(($msg_timestamp+60)) -ge $(date +%s) ]] && [[ $(date +%s) -le $(($msg_timestamp+5)) ]]; then return 0; else return 1; fi
-}
-
-is_handshake(){
-	local msg_type
-	local msg_timestamp
-	msg_type="$(jq --raw-output .msg_type <<<"$buffer")"
-	if [[ $msg_type != handshake ]]; then
-		echo "Erro de comunicação, o sistema não recebeu um retorno válido do servidor"
-		main_menu
-	fi
-	if (! is_valid_timestamp ); then
-		echo "O timestamp da mensagem é um valor inválido"
-		main_menu
-	fi
-	#Checar a assinatura da mensagem
-	jq . <<<"$buffer"
 }
 #-------------Fim data validators-------------
 
@@ -202,27 +187,28 @@ connect_server(){
 	send_data "$server_ip $server_port" "$handshake_json"
 	while true; do if [[ -f $buffer_folder/handshake_received ]]; then break; else sleep 1; fi; done &	#Aguarda uma resposta de ping chegar
 	local handshake_checker=$!
-	#Sub função de timeout
 	echo "Timeout is 60 seconds"
+	#Sub função de timeout
 	( sleep 60; if ( kill -0 $handshake_checker 2>/dev/null ); then kill -TERM $handshake_checker >/dev/null 2>&1; rm $buffer_folder/handshake_received >/dev/null 2>&1; fi ) &
 	wait $handshake_checker
 	if [[ $? -eq 0 ]]; then
-		is_handshake
-		rm $buffer_folder/ping_received	#redirecionar erro pra null
 		if (! is_valid_timestamp); then echo "Erro: O servidor respondeu a solicitação com um timestamp inválido"; return 1; fi
+		handshake="$(jq . "$buffer_folder"/handshake_received)"		##############
+		rm $buffer_folder/handshake_received	2>/dev/null
 	else
 		echo "Timeout"
 		return 1
 	fi
+	echo "handshake: '$(jq . <<<"$handshake")'"
 	echo "fim da connect"
 	read
 }
 
 send_ping_to_server(){
 	local msg_timestamp
-	local ping_data="$(jq -n --raw-output '{ "msg_type": "ping", "response_addr": "'"$response_addr"'", "timestamp": "'$(date +%s)'" }')"
+	local ping_query="$(jq '.ping_query | .response_addr="'"$response_addr"'" | .timestamp="'$(date +%s)'"' "$root_dir"/models/ping.json)"
 	echo "Testando conexão com o servidor"
-	send_data "$server_ip $server_port" "$ping_data"
+	send_data "$server_ip $server_port" "$ping_query"
 	while true; do if [[ -f $buffer_folder/ping_received ]]; then break; else sleep 1; fi; done &	#Aguarda uma resposta de ping chegar
 	local ping_checker=$!
 	#Sub função de timeout
@@ -268,7 +254,7 @@ get_handshake(){
 	unset password
 
 	sign_message "$username$password_hash$timestamp$response_addr$public_key"
-	handshake_json=$(jq -n '{ "msg_type": "handshake", "username": "'$username'", "timestamp": "'$timestamp'", "password_hash": "'$password_hash'", "response_addr": "'"$response_addr"'", "public_key": "'"$public_key"'", "msg_sig": "'"$msg_sig"'" }')
+	handshake_json=$(jq '.client | .username="'$username'" | .timestamp="'$timestamp'" | .password_hash="'$password_hash'" | .response_addr="'"$response_addr"'" | .public_key="'"$public_key"'" | .msg_sig="'"$msg_sig"'"' "$root_dir"/models/handshake.json)
 	unset timestamp
 }
 #-------------Fim connect to server-------------
@@ -278,9 +264,9 @@ check_config_file(){
 	local gpg_key_list
 	if [ ! $config_json ]; then echo "Erro, o arquivo de configurações não foi carregado corretamente"; shutdown; fi
 	#Cria o arquivo config.json como um JSON se ele não existir
-	if [ ! -s $root_dir/config.json ]; then echo -n "{}" > $root_dir/config.json; fi
+	if [ ! -s "$root_dir"/config.json ]; then echo -n "{}" > "$root_dir"/config.json; fi
 	#Converte o arquivo para um JSON caso ele não seja um
-	if (! jq -e . $root_dir/config.json >/dev/null 2>&1); then echo -n "{}" > $root_dir/config.json; fi
+	if (! jq -e . "$root_dir"/config.json >/dev/null 2>&1); then echo -n "{}" > "$root_dir"/config.json; fi
 	#Testa por chaves no config.json que não existem no chaveiro
 	gpg_key_list="$(gpg --list-keys | grep uid | awk '{print $2;}')"
 	for var in $(jq --raw-output '.gpg_keys[] | .keyname' <<<"$config_json" ); do
@@ -345,9 +331,9 @@ creategpgkey(){
 	#A senha da chave gpg será o sha256 da concatenação entre o sha256 da entropia e do timestamp
 	password=$(echo -n $(echo -n "$entropy" | sha256sum | awk '{print $1;}')$(echo -n "$timestamp" | sha256sum | awk '{print $1;}') | sha256sum | awk '{print $1;}')
 	#Gera o script temporário que o gpg vai usar para criar a chave
-	echo -en "%echo Generating a 2018 bits RSA key\nKey-Type: RSA\nKey-Length: 2048\nSubkey-Type: RSA\nSubkey-Length: 2048\nName-Real: ibcs_$username\nName-Comment: key for tor_comunicator\nExpire-Date: 0\n%commit\n%echo done" > $root_dir/gpg_script
+	echo -en "%echo Generating a 2018 bits RSA key\nKey-Type: RSA\nKey-Length: 2048\nSubkey-Type: RSA\nSubkey-Length: 2048\nName-Real: ibcs_$username\nName-Comment: key for tor_comunicator\nExpire-Date: 0\n%commit\n%echo done" > "$root_dir"/gpg_script
 	gpg --batch --gen-key gpg_script
-	rm $root_dir/gpg_script
+	rm "$root_dir"/gpg_script
 
 	config_json=$(jq '.gpg_keys[.gpg_keys|length] += { "keyname": "'ibcs_$username'", "password": "'$password'"}' <<<"$config_json")
 	updateconfigfile

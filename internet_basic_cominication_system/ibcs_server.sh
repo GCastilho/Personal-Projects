@@ -113,11 +113,12 @@ buffer_analyzer(){
 		handshake_response)
 			mv $buffer_folder/netcat_buffer_$count $buffer_folder/handshake_received ;;
 		*)
-			$logit "buffer não reconhecido: '$buffer'" ;;
+			$logit "buffer não reconhecido:\n'$buffer'" ;;
 	esac
 	if [[ -f $buffer_folder/netcat_buffer_$count ]]; then rm $buffer_folder/netcat_buffer_$count 2>/dev/null; fi
 }
 
+#Fazer um check se existe endereço e porta na variável
 send_data(){
 	local to_send_address=$1
 	local to_send_data=$2
@@ -131,7 +132,7 @@ ping_reply(){
 	if [[ ! "$response_addr" ]]; then return 1; fi
 	if ( ! is_valid_timestamp ); then return 1; fi
 	$logit "Respondendo solicitação de ping para '$response_addr'"
-	send_data "$response_addr" "$(jq -n '{ "msg_type": "ping_reply", "timestamp": "'$(date +%s)'"}')"
+	send_data "$response_addr" "$(jq '.ping_reply | .timestamp="'$(date +%s)'"' $root_dir/models/ping.json)"
 }
 
 is_valid_timestamp(){
