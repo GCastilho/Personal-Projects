@@ -97,7 +97,7 @@ netcat_module(){
 		}
 	done
 }
-#-------------end netcat-------------
+#-------------End netcat-------------
 
 #-------------Send and receive-------------
 buffer_analyzer(){
@@ -113,11 +113,12 @@ buffer_analyzer(){
 		handshake_response)
 			mv $buffer_folder/netcat_buffer_$count $buffer_folder/handshake_received ;;
 		*)
-			$logit "buffer não reconhecido: '$buffer'" ;;
+			$logit "buffer não reconhecido:\n'$buffer'" ;;
 	esac
 	if [[ -f $buffer_folder/netcat_buffer_$count ]]; then rm $buffer_folder/netcat_buffer_$count 2>/dev/null; fi
 }
 
+#Fazer um check se existe endereço e porta na variável
 send_data(){
 	local to_send_address=$1
 	local to_send_data=$2
@@ -128,10 +129,10 @@ send_data(){
 #-------------Data validators-------------
 ping_reply(){
 	response_addr=$(jq .response_addr --raw-output <<<"$buffer")
-	if [[ ! "$response_addr" ]]; then return; fi
-	if ( ! is_valid_timestamp ); then return; fi
+	if [[ ! "$response_addr" ]]; then return 1; fi
+	if ( ! is_valid_timestamp ); then return 1; fi
 	$logit "Respondendo solicitação de ping para '$response_addr'"
-	send_data "$response_addr" "$(jq -n '{ "msg_type": "ping_reply", "timestamp": "'$(date +%s)'"}')"
+	send_data "$response_addr" "$(jq '.ping_reply | .timestamp="'$(date +%s)'"' $root_dir/models/ping.json)"
 }
 
 is_valid_timestamp(){
@@ -139,7 +140,7 @@ is_valid_timestamp(){
 	msg_timestamp=$(jq .timestamp --raw-output <<<"$buffer")
 	if [[ $(($msg_timestamp+60)) -ge $(date +%s) ]] && [[ $(date +%s) -le $(($msg_timestamp+5)) ]]; then return 0; else return 1; fi
 }
-#-------------Data validators-------------
+#-------------Fim data validators-------------
 
 thread_monitor(){
 	if ( ! kill -0 "$PID" 2>/dev/null ); then shutdown; fi
