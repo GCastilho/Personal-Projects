@@ -109,7 +109,7 @@ netcat_module(){
 		}
 	done
 }
-#-------------end netcat-------------
+#-------------End netcat-------------
 
 #-------------Send and receive-------------
 buffer_analyzer(){
@@ -271,7 +271,7 @@ get_handshake(){
 	handshake_json=$(jq -n '{ "msg_type": "handshake", "username": "'$username'", "timestamp": "'$timestamp'", "password_hash": "'$password_hash'", "response_addr": "'"$response_addr"'", "public_key": "'"$public_key"'", "msg_sig": "'"$msg_sig"'" }')
 	unset timestamp
 }
-#-------------Fim da connect to server-------------
+#-------------Fim connect to server-------------
 
 check_config_file(){
 	local gpg_conflict_option
@@ -352,7 +352,7 @@ creategpgkey(){
 	config_json=$(jq '.gpg_keys[.gpg_keys|length] += { "keyname": "'ibcs_$username'", "password": "'$password'"}' <<<"$config_json")
 	updateconfigfile
 }
-#-------------Fim da PGP Key-------------
+#-------------Fim PGP Key-------------
 
 main_menu(){
 	local escolha

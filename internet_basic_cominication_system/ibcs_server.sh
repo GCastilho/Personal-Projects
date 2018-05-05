@@ -97,7 +97,7 @@ netcat_module(){
 		}
 	done
 }
-#-------------end netcat-------------
+#-------------End netcat-------------
 
 #-------------Send and receive-------------
 buffer_analyzer(){
@@ -128,8 +128,8 @@ send_data(){
 #-------------Data validators-------------
 ping_reply(){
 	response_addr=$(jq .response_addr --raw-output <<<"$buffer")
-	if [[ ! "$response_addr" ]]; then return; fi
-	if ( ! is_valid_timestamp ); then return; fi
+	if [[ ! "$response_addr" ]]; then return 1; fi
+	if ( ! is_valid_timestamp ); then return 1; fi
 	$logit "Respondendo solicitação de ping para '$response_addr'"
 	send_data "$response_addr" "$(jq -n '{ "msg_type": "ping_reply", "timestamp": "'$(date +%s)'"}')"
 }
@@ -139,7 +139,7 @@ is_valid_timestamp(){
 	msg_timestamp=$(jq .timestamp --raw-output <<<"$buffer")
 	if [[ $(($msg_timestamp+60)) -ge $(date +%s) ]] && [[ $(date +%s) -le $(($msg_timestamp+5)) ]]; then return 0; else return 1; fi
 }
-#-------------Data validators-------------
+#-------------Fim data validators-------------
 
 thread_monitor(){
 	if ( ! kill -0 "$PID" 2>/dev/null ); then shutdown; fi

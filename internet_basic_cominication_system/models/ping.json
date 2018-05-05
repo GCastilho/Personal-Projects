@@ -1,12 +1,11 @@
-ping_query
 {
-	"msg_type": "ping",
-	"response_addr": "$response_addr",
-	"timestamp": "$timestamp"
-}
-
-response
-{
-	"msg_type": "ping_reply",
-	"timestamp": "$timestamp"
+	"ping_query": {
+		"msg_type": "ping",
+		"response_addr": "$response_addr",
+		"timestamp": "$timestamp"
+	},
+	"ping_response": {
+		"msg_type": "ping_reply",
+		"timestamp": "$timestamp"
+	}
 }
