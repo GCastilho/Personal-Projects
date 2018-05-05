@@ -240,22 +240,22 @@ selectusername(){
 }
 
 get_handshake(){
+	local password
 	#NOTA: msg_sig encriptará o HEX não a public key em si. Atenção qdo verificar
 	public_key="$(gpg --armor --export ibcs_$username | xxd -p)"	#Converte a public key pra hex
-	
+
 	unset password
 	while [ ! $password ]; do
 		echo -n "Enter password: "
 		read -s password
 		if [ ! $password ]; then echo "Password não pode ser vazio"; else echo; fi
 	done
-	timestamp=$(date +%s)
+	local timestamp=$(date +%s)
 	password_hash=$(echo -n $(echo -n "$password" | sha256sum | awk '{print $1;}')$(echo -n "$timestamp" | sha256sum | awk '{print $1;}') | sha256sum | awk '{print $1;}')
 	unset password
 
 	sign_message "$username$password_hash$timestamp$response_addr$public_key"
 	handshake_json=$(jq '.client | .username="'$username'" | .timestamp="'$timestamp'" | .password_hash="'$password_hash'" | .response_addr="'"$response_addr"'" | .public_key="'"$public_key"'" | .msg_sig="'"$msg_sig"'"' "$root_dir"/models/handshake.json)
-	unset timestamp
 }
 #-------------Fim connect to server-------------
 
