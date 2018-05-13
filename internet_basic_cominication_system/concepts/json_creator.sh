@@ -1,14 +1,8 @@
 #!/bin/bash
 
-echo "Enter username: "
-read username
-
-#echo -e "\nEnter tor ip: "
-#read tor_ip
+username=GCastilho
 tor_ip="thehiddenwiki.onion"
-
 keyname=$(jq --raw-output .keyname config.json)
-
 #NOTA: msg_sig está encriptando o HEX não a public key em si. Atenção qdo verificar
 public_key="$(gpg -a -r $keyname --export | xxd -p)"	#Converte a public key pra hex
 
