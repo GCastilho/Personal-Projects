@@ -110,8 +110,6 @@ buffer_analyzer(){
 		ping_reply)
 			#colocar numero do ping ou algum tipo de identificação nene, pra suportar várias solicitações
 			mv $buffer_folder/netcat_buffer_$count $buffer_folder/ping_received ;;
-		handshake_response)
-			mv $buffer_folder/netcat_buffer_$count $buffer_folder/handshake_received ;;
 		*)
 			$logit "buffer não reconhecido:\n'$buffer'" ;;
 	esac

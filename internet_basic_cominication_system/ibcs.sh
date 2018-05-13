@@ -262,7 +262,7 @@ get_handshake(){
 check_config_file(){
 	local gpg_conflict_option
 	local gpg_key_list
-	if [ ! $config_json ]; then echo "Erro, o arquivo de configurações não foi carregado corretamente"; shutdown; fi
+	if [[ ! $config_json ]]; then echo "Erro, o arquivo de configurações não foi carregado corretamente"; shutdown; fi
 	#Cria o arquivo config.json como um JSON se ele não existir
 	if [ ! -s "$root_dir"/config.json ]; then echo -n "{}" > "$root_dir"/config.json; fi
 	#Converte o arquivo para um JSON caso ele não seja um
