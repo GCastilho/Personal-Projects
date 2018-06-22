@@ -26,7 +26,7 @@ converter() {
 	for((count=1; count<=$n_ext; count++)){
 		for arq in "$datual"/*.${extensao[count]}; do 	#Dá bug se nenhum arquivo com a extensão existir
 			arq=${arq#$datual/}					#Remove o caminho do arquivo da variável
-			echo -e "\e[1;35mConvertendo $arq\e[0m"
+			echo -e "\n\e[1;35mConvertendo $arq\e[0m"
 			setresolucao						#chama a função que configura a resolução individualmente para cada arquivo
 			srtextract							#chama a função que irá extrair a legenda do arquivo de vídeo para um arquivo srt
 			if [ $skip_file -eq 0 ]; then
@@ -229,8 +229,7 @@ checkargumento() {
 		esac
 	}
 	if [ $autodelete -eq 1 ]; then
-		echo -e "\e[01;31mAVISO:\e[0m"
-		echo -e "O argumento \"-D\" foi utilizado, autorizando a remoção automática do diretório atual no fim do script sem questionar\n"
+		echo -e "\n\e[01;31mAVISO:\e[0m\nO argumento \"-D\" foi utilizado, autorizando a remoção automática do diretório atual no fim do script sem questionar"
 	fi
 	if [[ $custom_dir == 1 ]]; then
 		datual=${datual%/}	#remove o último '/' se existir
@@ -248,8 +247,7 @@ checkargumento() {
 
 checkconvertidos() {
 	if [[ $(ls -A "$datual"/convertidos 2>/dev/null) ]]; then
-		echo -e "Já existem arquivos na pasta convertidos\nDeseja pular a conversão e simplesmente copiá-los para a pasta Videos?"
-		echo -n "S/n: "
+		echo -e "Já existem arquivos na pasta convertidos\nDeseja pular a conversão e simplesmente copiá-los para a pasta Videos?\nS/n: "
 		read pular
 		case $pular in
 			S|""|s)
@@ -304,7 +302,7 @@ copiasrt() {
 	if [ $(ls -1 "$datual"/*.srt 2>/dev/null | wc -l) -gt 0 ]; then
 		echo -e "\nDetectado arquivos de legenda em '$datual'\nCopiando arquivos de legenda para a pasta 'convertidos'"
 		if ( cp -v "$datual"/*.srt "$datual"/convertidos/ ); then
-			echo -e "Arquivos copiados com sucesso\n"
+			echo "Arquivos copiados com sucesso"
 		else
 			echo -e "Erro na cópia do arquivos de legenda\nInterrompendo script"
 			exit 1
@@ -318,7 +316,7 @@ main() {
 	echo
 	ambientvar          #Seta variáveis que serão as mesmas em todas as funções e são necessárias desde sempre
 	checkargumento		#Checa os argumentos dados ao script e toma as medidas para tal
-	echo "O diretório atual é: \"$datual\""
+	echo -e "\nO diretório atual é: \"$datual\""
 	checkdbfile         #Checa se o arquivo de banco de dados existe (lembrando que um argumento pode indicar outro DB, por isso ele checa depois da função 'checkargumento')
 	checkconvertidos    #checa se a pasta 'convertidos' existe
 	if [ $onlycopy -eq 0 ]; then	#se 'onlycopy' for igual a 1, todos os passos referentes a conversão dos arquivos serão pulados
