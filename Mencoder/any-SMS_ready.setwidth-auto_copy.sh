@@ -7,8 +7,8 @@ setresolucao() {
 	coded_height=$(jq '.streams[] | select(.codec_type=="video") | .coded_height' <<<"$json_probe")
 	if [ -z $coded_width ] || [ -z $coded_height ]; then
 		echo "Erro na definição da resolução: Leitura de variáveis incorreta"
-		sleep 5
 		skip_file=1
+		sleep 5
 	else
 		altura=$(echo "670/($coded_width/$coded_height)" | bc -l)	#Calcula precisamente o valor da altura por regra de 3
 		altura=$(echo "($altura+0.5)/1" | bc )						#Arredonda o valor da altura para um inteiro
@@ -134,11 +134,9 @@ delete()
 	fi
 }
 
-checkempty()
-{
+checkempty() {
 	if [[ ! $(ls -A "$datual"/convertidos) ]]; then
-		echo "A pasta 'convertidos' está vazia, isso provavelmente ocorreu por um erro na conversão"
-		echo "Encerrando o script"
+		echo -e "A pasta 'convertidos' está vazia, isso provavelmente ocorreu por um erro na conversão\nEncerrando o script"
 		sleep 10
 		exit 1
 	fi
@@ -173,25 +171,24 @@ setlang() {
 	while [ ! $a_lang ]; do
 		echo -n "(deixe em branco para 'por') "
 		read a_lang
+		if [ ! "$a_lang" ]; then
+			a_lang=por
+		fi
 		case $a_lang in
 			*[0-9]*)
 				echo -n "Números não são permitidos "
 				unset a_lang ;;
 		esac
 	done
-	if [ ! "$a_lang" ]; then
-		a_lang=por
-	fi
 	echo "O idioma preferencial que será usado na conversão será o '$a_lang'"
 }
 
-checkargumento()
-{
+checkargumento() {
 	unset arg_list
 	opt_args="d"			#Os argumentos dessa variável são os que OBRIGATORIAMENTE precisam de uma opção passada como outro argumento (ex: -d /bin/bash)
 	for ((count=0; count < ${#arg[*]}; count++)) {		#Lista recursivamente os itens do array dos argumentos
-		if [[ "${arg[count]:0:1}" == "-" ]]; then			#Testa se o argumento começa com traço '-'
-			if [[ "${arg[count]:1:1}" == "-" ]]; then		#Testa se o argumento tem um segundo traço ('--')
+		if [[ "${arg[count]:0:1}" == "-" ]]; then		#Testa se o argumento começa com traço '-'
+			if [[ "${arg[count]:1:1}" == "-" ]]; then	#Testa se o argumento tem um segundo traço ('--')
 				if [[ ! -z ${arg[count]} ]]; then		#Adiciona o item no array apenas se o ítem não é nulo
 					arg_list[arr++]="${arg[count]}"
 				fi
@@ -199,8 +196,8 @@ checkargumento()
 				i=0		#i controla em qual palavra a opção passada como argumento está, relativamente a posição do array sendo analisada
 				for ((char=1; char<${#arg[count]}; char++)) {	#Lista recursivamente os caracteres do item do array; char=1 para ignorar o '-'
 					if [[ ! -z ${arg[count]:char:1} ]]; then	#Adiciona o item no array apenas se o ítem não é nulo
-						arg_list[arr++]="-${arg[count]:char:1}"		#Coloca o char do argumento na lista de argumentos
-						if [[ ! -z $opt_args ]]; then				#If necessário se $opt_args estiver vazia
+						arg_list[arr++]="-${arg[count]:char:1}"	#Coloca o char do argumento na lista de argumentos
+						if [[ ! -z $opt_args ]]; then			#If necessário se $opt_args estiver vazia
 							if ( echo ${arg[count]:char:1} | grep [$opt_args] >/dev/null ); then	#Verifica se ${arg[count]:char:1} contêm algum char de $opt_args
 								((i++))											#Incrementa o controle de organização das opções passadas como argumentos
 								if [[ ! -z ${arg[count+i]} ]]; then				#Adiciona o item no array apenas se o ítem não é nulo
@@ -238,10 +235,9 @@ checkargumento()
 			#X) Um argumento que permita juntar todas as saídas em um único arquivo, como esse comando "mencoder -oac copy -ovc copy file1.avi file2.avi file3.avi -o full_movie.avi"
 		esac
 	}
-	if [[ $autodelete == 1 ]]; then
+	if [ $autodelete -eq 1 ]; then
 		echo -e "\e[01;31mAVISO:\e[0m"
-		echo "O argumento \"-D\" foi utilizado, autorizando a remoção automática do diretório atual no fim do script sem questionar"
-		echo
+		echo -e "O argumento \"-D\" foi utilizado, autorizando a remoção automática do diretório atual no fim do script sem questionar\n"
 	fi
 	if [[ $custom_dir == 1 ]]; then
 		datual=${datual%/}	#remove o último '/' se existir
@@ -257,12 +253,10 @@ checkargumento()
 	fi
 }
 
-checkconvertidos()
-{
-	if [ -d "$datual"/"convertidos" ]; then
-		echo "A pasta 'convertidos' já existe, isso pode significar que os arquivos já foram convertidos mas por algum motivo não foram copiados"
-		echo "Deseja pular a conversão e simplesmente copiar os arquivos para a pasta Videos?"
-		echo "S/n"
+checkconvertidos() {
+	if [[ $(ls -A "$datual"/convertidos 2>/dev/null) ]]; then
+		echo -e "Já existem arquivos na pasta convertidos\nDeseja pular a conversão e simplesmente copiá-los para a pasta Videos?"
+		echo -n "S/n: "
 		read pular
 		case $pular in
 			S|""|s)
@@ -274,18 +268,15 @@ checkconvertidos()
 	fi
 }
 
-checkdbfile()
-{
+checkdbfile() {
 	if [ ! -e "$db_file" ]; then  #Checa a existência do arquivo de banco de dados; esse comando está depois da função 'checkargumento' caso algum argumento dela utilize outro DB
-		echo "Erro na localização do banco de dados ($db_file)"
-		echo "Interrompendo Script"
+		echo -e "Erro na localização do banco de dados ($db_file)\nInterrompendo Script"
 		exit 1
 	fi
 }
 
-ambientvar()
-{
-	db_file=/home/gabriel/Documentos/Shell\ Scripts/Mencoder/SMS_autocopy.db #Minha conclusão, que pode estar errada, é que ao declarar um file path não utiliza-se aspas, mas na hora que utilizá-lo, sim
+ambientvar() {
+	db_file=/home/gabriel/Documentos/Shell\ Scripts/Mencoder/SMS_autocopy.db
 	datual=$(pwd)
 	onlycopy=0
 	autodelete=0
@@ -336,25 +327,19 @@ srtextract()
 	fi
 }
 
-copiasrt()
-{
+copiasrt() {
 	if [ $(ls -1 "$datual"/*.srt 2>/dev/null | wc -l) -gt 0 ]; then
-		echo "Detectado arquivos de legenda em '$datual'"
-		echo "Copiando arquivos de legenda para a pasta 'convertidos'"
-		echo
+		echo -e "Detectado arquivos de legenda em '$datual'\nCopiando arquivos de legenda para a pasta 'convertidos'\n"
 		if ( cp -v "$datual"/*.srt "$datual"/convertidos/ ); then
-			echo "Arquivos copiados com sucesso"
-			echo
+			echo -e "Arquivos copiados com sucesso\n"
 		else
-			echo "Erro na cópia do arquivos de legenda"
-			echo "Interrompendo script"
+			echo -e "Erro na cópia do arquivos de legenda\nInterrompendo script"
 			exit 1
 		fi
 	fi
 }
 
-main()
-{
+main() {
 	echo "Bem vindo ao programa de conversão e cópia automática para o SMS do PS2"
 	echo "Esse programa usa mencoder"
 	echo
