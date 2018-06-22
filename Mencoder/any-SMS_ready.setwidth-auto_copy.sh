@@ -3,8 +3,8 @@
 
 setresolucao() {
 	local json_probe=$(ffprobe -v quiet -show_format -show_streams -print_format json "$datual"/"$arq")
-	coded_width=$(jq '.streams[] | select(.codec_type=="video") | .coded_width' <<<"$json_probe")
-	coded_height=$(jq '.streams[] | select(.codec_type=="video") | .coded_height' <<<"$json_probe")
+	local coded_width=$(jq '.streams[] | select(.codec_type=="video") | .coded_width' <<<"$json_probe")
+	local coded_height=$(jq '.streams[] | select(.codec_type=="video") | .coded_height' <<<"$json_probe")
 	if [ -z $coded_width ] || [ -z $coded_height ]; then
 		echo "Erro na definição da resolução: Leitura de variáveis incorreta"
 		skip_file=1
@@ -41,13 +41,10 @@ converter() {
 	echo "Fim do processo de conversão"
 }
 
-copia()
-{
-	echo "Iniciando cópia dos arquivos"
-	echo
+copia() {
+	echo -e "\nIniciando cópia dos arquivos"
 	sleep 5
-	while read origem destino
-	do
+	while read origem destino; do
 		if [[ $(ls -1 "$datual"/convertidos/"$origem"* 2>/dev/null | wc -l) > 0 ]]; then	#Check se um arquivo que começa com '$origem' existe
 			mv -v "$datual"/convertidos/"$origem"* ~/"$destino"								#Copia os arquivos que começam com '$origem' para '$destino'
 		fi
@@ -56,11 +53,10 @@ copia()
 		mv -v "$datual"/convertidos/*    ~/Public/Videos/    				#Copia arquivos restantes da pasta convertidos para a '~/Public/Videos/'
 	fi
 	echo "Fim da cópia dos arquivos"
-	echo
 }
 
 montar() {
-	echo "Tentando conexão com $file_host_name ($file_host)"
+	echo -e "\nTentando conexão com $file_host_name ($file_host)"
 	if ( ping -c 1 $file_host &> /dev/null ); then
 		echo "Conexão com $file_host_name bem-sucedida"
 		if ( mountpoint -q ~/Public/Videos/ ); then
@@ -73,21 +69,19 @@ montar() {
 			if ( mountpoint -q ~/Public/Videos/ ); then
 				echo "Montagem bem sucedida"
 			else
-				echo "Erro na montagem, a pasta não foi montada"
-				echo "Interrompendo script"
+				echo -e "Erro na montagem, a pasta não foi montada\nInterrompendo script"
 				exit 1
 			fi
 		fi
 	else
-		echo "Erro na conexão com $file_host_name"
-		echo "Interrompendo o script"
+		echo -e "Erro na conexão com $file_host_name\nInterrompendo o script"
 		exit 1
 	fi
 }
 
 desmontar() {
 	if [ $montada -eq 0 ]; then
-		echo "Desmontando a pasta Vídeos"
+		echo -e "\nDesmontando a pasta Vídeos"
 		umount ~/Public/Videos/
 		if ( mountpoint -q ~/Public/Videos/ ); then
 			echo -e "Houve um erro na desmontagem\nA Pasta não foi desmontada"
@@ -95,42 +89,41 @@ desmontar() {
 			echo "Desmontagem bem sucedida"
 		fi
 	else
-		echo "A pasta vídeos não será desmontada pois já estava montada antes da execução do script"
+		echo -e "\nA pasta vídeos não será desmontada pois já estava montada antes da execução do script"
 	fi
 }
 
-delete()
-{
-	echo "Removendo arquivos temporários usados pelo script"
+delete() {
+	echo -e "\nRemovendo pasta convertidos"
 	if [[ $(ls -A "$datual"/convertidos 2>/dev/null | wc -l) == 0 ]]; then
 		if ( ! rm -vrf "$datual"/convertidos ); then
-			echo "Erro ao deletar pasta 'convertidos'"
-			echo "Interrompendo script"
+			echo -e "Erro ao deletar pasta 'convertidos'\nInterrompendo script"
 			exit 1
 		fi
 	else
-		echo "A pasta 'convertidos' não estava vazia, isso significa que houve um erro ao copiar os arquivos para a pasta Vídeos"
+		echo "A pasta 'convertidos' não está vazia, isso significa que houve um erro ao copiar os arquivos para a pasta Vídeos"
 		exit 1
 	fi
 	if [ $autodelete -eq 1 ]; then
 		echo "Deletando pasta '$datual'"
-		cd ~
 		rm -vrf "$datual"
 	else
-		echo "Deletar a pasta '$datual'?"
-		echo "s/N"
-		read deletar
-		case $deletar in
-			S|s)
-				echo "Deletando pasta '$datual'"
-				cd ~
-				rm -vrf "$datual" ;;
-			N|""|n)
-				echo "A pasta '$datual' não foi deletada" ;;
-			*)
-				echo "Responda 'S' para Sim, 'n' para Não ou deixe em branco para 'Sim'"
-				delete ;;
-		esac
+		unset deletar
+		while [ ! $deletar ]; do
+			echo -e "Deletar a pasta '$datual'?\ns/N"
+			read deletar
+			case $deletar in
+				S|s)
+					echo "Deletando pasta '$datual'"
+					rm -vrf "$datual" ;;
+				N|""|n)
+					echo "A pasta '$datual' não foi deletada"
+					break ;;
+				*)
+					echo "Deixe em branco ou responda 'S' para Sim, 'n' para Não"
+					unset deletar ;;
+			esac
+		done
 	fi
 }
 
@@ -143,8 +136,7 @@ checkempty() {
 }
 
 setextensao() {
-	echo -e "\nSelecione o número de extensões diferentes dos arquivos de origem"
-	echo -n "Deixe em branco para 1: "
+	echo -en "\nSelecione o número de extensões diferentes dos arquivos de origem\nDeixe em branco para 1: "
 	read n_ext
 	if [ ! "$n_ext" ]; then
 		n_ext=1
@@ -168,6 +160,7 @@ setextensao() {
 
 setlang() {
 	echo -en "\nPor favor, selecione o idioma preferencial que deve ser utilizado na conversão "
+	unset a_lang
 	while [ ! $a_lang ]; do
 		echo -n "(deixe em branco para 'por') "
 		read a_lang
@@ -300,18 +293,16 @@ srtextract() {
 				echo -e "Erro na extração da legenda\nInterrompendo Script"
 				exit 1
 			fi
-		else
-			if [ $n_fluxos_pt -gt 1 ]; then
-				echo -e "\n\e[01;31mALERTA:\e[0m Não há arquivo externo de legenda para '$arq' MAS foi encontrado mais de um fluxo de legenda em portugues no arquivo de video\nO script não irá fazer nada"
-				sleep 5
-			fi
+		elif [ $n_fluxos_pt -gt 1 ]; then
+			echo -e "\n\e[01;31mALERTA:\e[0m Não há arquivo externo de legenda para '$arq' MAS foi encontrado mais de um fluxo de legenda em portugues no arquivo de video\nO script não irá fazer nada"
+			sleep 5
 		fi
 	fi
 }
 
 copiasrt() {
 	if [ $(ls -1 "$datual"/*.srt 2>/dev/null | wc -l) -gt 0 ]; then
-		echo -e "Detectado arquivos de legenda em '$datual'\nCopiando arquivos de legenda para a pasta 'convertidos'\n"
+		echo -e "\nDetectado arquivos de legenda em '$datual'\nCopiando arquivos de legenda para a pasta 'convertidos'"
 		if ( cp -v "$datual"/*.srt "$datual"/convertidos/ ); then
 			echo -e "Arquivos copiados com sucesso\n"
 		else
