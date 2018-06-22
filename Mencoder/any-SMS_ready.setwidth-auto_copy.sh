@@ -285,42 +285,24 @@ ambientvar() {
 	file_host_name=Nabucodonosor
 }
 
-srtextract()
-{
+srtextract() {
 	filename=${arq%.$extensao*}
-	if [ ! -f "$datual"/"$filename.srt" ] && [[ "$a_lang" != "por" ]]; then	#Uma função que detecta se existe uma faixa em 'por' no vídeo é melhor (para o 2º test)
-		n_fluxos_pt=0
-		stream_num=0
-		stream_indexes=$($ffprobe_command "$datual"/"$arq" | jq .streams[].index | wc -l)
-		unset srt_streams
-		unset por_stream
-		while [ $stream_num -lt $stream_indexes ]; do
-			if [[ "$($ffprobe_command "$datual"/"$arq" | jq --raw-output .streams[$stream_num].codec_type)" == "subtitle" ]]; then
-				srt_streams="${srt_streams} $stream_num"
-			fi
-			((stream_num++))
-		done
-		for fluxo in $srt_streams; do
-			fluxo_lang=$($ffprobe_command "$datual"/"$arq" | jq --raw-output .streams[$fluxo].tags.language)
-			if [[ "$fluxo_lang" == "por" ]]; then
-				por_stream="${por_stream} $fluxo"
-				((n_fluxos_pt++))
-			fi
-		done
+	#Uma função que detecta se existe uma faixa em 'por' no vídeo é melhor que o áudio setado para por
+	if [ ! -f "$datual"/"$filename.srt" ] && [[ "$a_lang" != "por" ]]; then
+		local json_probe=$($ffprobe_command "$datual"/"$arq")
+		local n_fluxos_pt=$(jq '.streams[] | select(.codec_type=="subtitle") | select(.tags.language=="por") | .index' <<<"$json_probe" | wc -l)
 		if [ $n_fluxos_pt -eq 1 ]; then
-			echo "Foi encontrado um fluxo de legenda em portugues dentro do arquivo de vídeo"
-			echo "Extraindo fluxo de legenda para arquivo srt..."
+			echo -e "\nFoi encontrado um fluxo de legenda em portugues dentro do arquivo de vídeo\nExtraindo fluxo de legenda para arquivo srt..."
+			local por_stream=$(jq '.streams[] | select(.codec_type=="subtitle") | select(.tags.language=="por") | .index' <<<"$json_probe")
 			if (mkvextract tracks "$datual/$arq" $por_stream:"$datual/convertidos/$filename.srt"); then
 				echo "Extração completa"
 			else
-				echo "Erro na extração da legenda"
-				echo "Interrompendo Script"
+				echo -e "Erro na extração da legenda\nInterrompendo Script"
 				exit 1
 			fi
 		else
 			if [ $n_fluxos_pt -gt 1 ]; then
-				echo "ALERTA: Não há arquivo externo de legenda para '$arq' MAS foi encontrado mais de um fluxo de legenda em portugues no arquivo de video"
-				echo "O script não irá fazer nada"
+				echo -e "\n\e[01;31mALERTA:\e[0m Não há arquivo externo de legenda para '$arq' MAS foi encontrado mais de um fluxo de legenda em portugues no arquivo de video\nO script não irá fazer nada"
 				sleep 5
 			fi
 		fi
