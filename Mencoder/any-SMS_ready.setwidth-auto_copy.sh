@@ -17,34 +17,27 @@ setresolucao() {
 	fi
 }
 
-converter()
-{
-	echo "A conversão começará em 10 segundos"
+converter() {
+	echo -e "\nA conversão começará em 10 segundos"
 	sleep 10
 	if [ ! -d "$datual"/convertidos ]; then		#Checa se a pasta convertidos não existe
 		mkdir "$datual/convertidos"				#Cria ela apenas se não existir
 	fi
-	exec_numb=0
-	while [ $exec_numb -lt $n_ext ]
-	do
-		exec_numb=$(( exec_numb+1 ))		    #incrementa a variável para registrar que o while foi executado mais uma vez
-		eval extensao='$'extensao_$exec_numb    #A variável "extensao" vai receber o valor contido na variável "extensao_X", da função "setextensao"
-		for arq in "$datual"/*.$extensao
-		do
+	for((count=1; count<=$n_ext; count++)){
+		for arq in "$datual"/*.${extensao[count]}; do 	#Dá bug se nenhum arquivo com a extensão existir
 			arq=${arq#$datual/}					#Remove o caminho do arquivo da variável
 			echo -e "\e[1;35mConvertendo $arq\e[0m"
 			setresolucao						#chama a função que configura a resolução individualmente para cada arquivo
 			srtextract							#chama a função que irá extrair a legenda do arquivo de vídeo para um arquivo srt
 			if [ $skip_file -eq 0 ]; then
 				sleep 2
-				mencoder "$datual"/"$arq" -oac mp3lame -lameopts br=256 -af resample=48000 -ovc lavc -vf scale=670:$altura -ffourcc XVID -alang $a_lang -lavcopts vbitrate=16000:autoaspect -nosub -msgcolor -o "$datual"/convertidos/"${arq/.$extensao/.avi}"
-				echo	#pula uma linha após o fim da saída de texto do mencoder
+				mencoder "$datual"/"$arq" -oac mp3lame -lameopts br=256 -af resample=48000 -ovc lavc -vf scale=670:$altura -ffourcc XVID -alang $a_lang -lavcopts vbitrate=16000:autoaspect -nosub -msgcolor -o "$datual"/convertidos/"${arq/.$extensao[count]/.avi}"
 			else
 				echo "Pulando conversão do arquivo devido a erro na definição de variáveis"
 				sleep 5
 			fi
 		done
-	done
+	}
 	echo "Fim do processo de conversão"
 }
 
@@ -66,8 +59,7 @@ copia()
 	echo
 }
 
-montar()
-{
+montar() {
 	echo "Tentando conexão com $file_host_name ($file_host)"
 	if ( ping -c 1 $file_host &> /dev/null ); then
 		echo "Conexão com $file_host_name bem-sucedida"
@@ -93,14 +85,12 @@ montar()
 	fi
 }
 
-desmontar()
-{
+desmontar() {
 	if [ $montada -eq 0 ]; then
 		echo "Desmontando a pasta Vídeos"
 		umount ~/Public/Videos/
 		if ( mountpoint -q ~/Public/Videos/ ); then
-			echo "Houve um erro na desmontagem"
-			echo "A Pasta não foi desmontada"
+			echo -e "Houve um erro na desmontagem\nA Pasta não foi desmontada"
 		else
 			echo "Desmontagem bem sucedida"
 		fi
@@ -154,35 +144,28 @@ checkempty()
 	fi
 }
 
-setextensao()
-{
-	echo "Selecione o número de extensões diferentes dos arquivos de origem"
-	echo "Deixe em branco para 1"
-	read n_ext		#numero de extensões - essa variável controla quantas vezes o while deve ser executado
+setextensao() {
+	echo -e "\nSelecione o número de extensões diferentes dos arquivos de origem"
+	echo -n "Deixe em branco para 1: "
+	read n_ext
 	if [ ! "$n_ext" ]; then
 		n_ext=1
 	fi
-	exec_numb=0		#numero de vezes executado - essa variável controla quantas vezes o while foi executado
-	while [ $exec_numb -lt $n_ext ]
-	do
-		exec_numb=$(( exec_numb+1 ))		#incrementa a variável para registrar que o while foi executado mais uma vez
-		echo "Selecione a extensão $exec_numb"
-		if [ "$exec_numb" -eq 1 ]; then
-			echo "Deixe em branco para 'mkv'"
+	for((count=1; count<=$n_ext; count++)){
+		echo -n "Selecione a extensão $count "
+		if [ $count -eq 1 ]; then
+			echo -n "(deixe em branco para 'mkv') "
 		fi
 		read leitura_extensao
-		if [ "$exec_numb" -eq 1 ]; then
-			if [ ! "$leitura_extensao" ]; then
-				leitura_extensao=mkv
-			fi
+		if [ $count -eq 1 ] && [ ! "$leitura_extensao" ]; then
+			leitura_extensao=mkv
 		fi
 		if [ ! "$leitura_extensao" ]; then
 			echo "Você deve digitar uma extensão"
-			echo
-			setextensao
+			((count--))
 		fi
-		eval extensao_$exec_numb='$'leitura_extensao    #com esse comando, a variável "extensao_X", sendo X um número, armazena o valor digitado acima
-	done
+		extensao[count]=$leitura_extensao
+	}
 }
 
 setlang()
