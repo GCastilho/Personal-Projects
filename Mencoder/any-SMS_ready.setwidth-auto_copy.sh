@@ -1,12 +1,10 @@
 #!/bin/bash
 # programas utilizados: mencoder ffprobe bc mkvtoolnix jq
 
-setresolucao()
-{
-	coded_width=$(ffprobe -v quiet -show_format -show_streams "$datual"/"$arq" | grep coded_width=)
-	coded_height=$(ffprobe -v quiet -show_format -show_streams "$datual"/"$arq" | grep coded_height=)
-	coded_width=${coded_width#coded_width=}
-	coded_height=${coded_height#coded_height=}
+setresolucao() {
+	local json_probe=$(ffprobe -v quiet -show_format -show_streams -print_format json "$datual"/"$arq")
+	coded_width=$(jq '.streams[] | select(.codec_type=="video") | .coded_width' <<<"$json_probe")
+	coded_height=$(jq '.streams[] | select(.codec_type=="video") | .coded_height' <<<"$json_probe")
 	if [ -z $coded_width ] || [ -z $coded_height ]; then
 		echo "Erro na definição da resolução: Leitura de variáveis incorreta"
 		sleep 5
