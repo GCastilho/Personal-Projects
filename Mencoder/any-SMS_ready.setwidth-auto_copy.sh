@@ -168,16 +168,17 @@ setextensao() {
 	}
 }
 
-setlang()
-{
-	echo "Por favor, selecione o idioma preferencial que deve ser utilizado na conversão"
-	echo "Deixe em branco para 'por'"
-	read a_lang
-	case $a_lang in
-		*[0-9]*)
-			echo "Números não são permitidos"
-			setlang ;;
-	esac    
+setlang() {
+	echo -en "\nPor favor, selecione o idioma preferencial que deve ser utilizado na conversão "
+	while [ ! $a_lang ]; do
+		echo -n "(deixe em branco para 'por') "
+		read a_lang
+		case $a_lang in
+			*[0-9]*)
+				echo -n "Números não são permitidos "
+				unset a_lang ;;
+		esac
+	done
 	if [ ! "$a_lang" ]; then
 		a_lang=por
 	fi
