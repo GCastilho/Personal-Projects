@@ -1,3 +1,4 @@
-Shell Scripts
+Personal-Projects
+=================
 
-Repositório git para projetos pessoais em Shell Script
+Repositório git para projetos pessoais em diversas linguagens

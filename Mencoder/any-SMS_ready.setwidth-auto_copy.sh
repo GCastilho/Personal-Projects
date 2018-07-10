@@ -31,7 +31,7 @@ converter() {
 			srtextract							#chama a função que irá extrair a legenda do arquivo de vídeo para um arquivo srt
 			if [ $skip_file -eq 0 ]; then
 				sleep 2
-				mencoder "$datual"/"$arq" -oac mp3lame -lameopts br=256 -af resample=48000 -ovc lavc -vf scale=670:$altura -ffourcc XVID -alang $a_lang -lavcopts vbitrate=16000:autoaspect -nosub -msgcolor -o "$datual"/convertidos/"${arq/.$extensao[count]/.avi}"
+				mencoder "$datual"/"$arq" -oac mp3lame -lameopts br=256 -af resample=48000 -ovc lavc -vf scale=670:$altura -ffourcc XVID -alang $a_lang -lavcopts vbitrate=16000:autoaspect -nosub -msgcolor -o "$datual"/convertidos/"${arq/.${extensao[count]}/.avi}"
 			else
 				echo "Pulando conversão do arquivo devido a erro na definição de variáveis"
 				sleep 5
@@ -267,7 +267,7 @@ checkdbfile() {
 }
 
 ambientvar() {
-	db_file=/home/gabriel/Documentos/Shell\ Scripts/Mencoder/SMS_autocopy.db
+	db_file=/home/gabriel/Documentos/Personal-Projects/mencoder/SMS_autocopy.db
 	datual=$(pwd)
 	onlycopy=0
 	autodelete=0
