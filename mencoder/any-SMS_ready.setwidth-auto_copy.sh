@@ -104,9 +104,12 @@ delete() {
 		echo "A pasta 'convertidos' não está vazia, isso significa que houve um erro ao copiar os arquivos para a pasta Vídeos"
 		exit 1
 	fi
-	if [ $autodelete -eq 1 ]; then
+	if [ $deleteAction -eq 1 ]; then
 		echo "Deletando pasta '$datual'"
 		rm -vrf "$datual"
+	elif [ $deleteAction -eq 2 ]; then
+		echo "A pasta '$datual' NÃO será deletada pois o argumento 'not-delete' foi utilizado, continuando execução..."
+		return
 	else
 		unset deletar
 		while [ ! $deletar ]; do
@@ -211,8 +214,10 @@ checkargumento() {
 	for ((count=0; count < ${#arg_list[*]}; count++)) {
 		arg=${arg_list[count]}
 		case $arg in
-			-D)
-				autodelete=1 ;;
+			-D)						#Deleta datual automaticamente
+				deleteAction=1 ;;
+			-n|--not-delete)		#Automaticamente NÃO deleta o datual
+				deleteAction=2 ;;
 			-d|--dir=*)
 				custom_dir=1
 				if [[ $arg == "-d" ]]; then
@@ -228,8 +233,10 @@ checkargumento() {
 			#X) Um argumento que permita juntar todas as saídas em um único arquivo, como esse comando "mencoder -oac copy -ovc copy file1.avi file2.avi file3.avi -o full_movie.avi"
 		esac
 	}
-	if [ $autodelete -eq 1 ]; then
+	if [ $deleteAction -eq 1 ]; then
 		echo -e "\n\e[01;31mAVISO:\e[0m\nO argumento \"-D\" foi utilizado, autorizando a remoção automática do diretório atual no fim do script sem questionar"
+	elif [ $deleteAction -eq 2 ]; then
+		echo "Argumento 'not-delete' utilizado, autorizando a NÃO remoção do diretório atual no fim do processo sem questionar"
 	fi
 	if [[ $custom_dir == 1 ]]; then
 		datual=${datual%/}	#remove o último '/' se existir
@@ -270,7 +277,7 @@ ambientvar() {
 	db_file=/home/gabriel/Documentos/Personal-Projects/mencoder/SMS_autocopy.db
 	datual=$(pwd)
 	onlycopy=0
-	autodelete=0
+	deleteAction=0
 	ffprobe_command="ffprobe -v quiet -show_format -show_streams -print_format json"
 	file_host=192.168.0.101
 	file_host_name=Nabucodonosor

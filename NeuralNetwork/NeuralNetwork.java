@@ -118,7 +118,7 @@ public class NeuralNetwork{
 		}
 		double[][] sigma = new double[layer.length][];
 		double[][][] adjustmentWeight = new double[layer.length][][];
-		int iteractions = 1000;
+		int iteractions = 1000000;
 		System.out.printf("Looping for %d times\nLearning... ", iteractions);
 		for(int count=1; count<=iteractions; ++count){
 			double totalError = 0.0;
